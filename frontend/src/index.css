@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+/* src/index.css (or wherever theme CSS is defined) */
+@theme {
+  /* Existing colors from previous query */
+  --color-gold-50: #FFFDF0;
+  --color-gold-100: #FFF8B8;
+  --color-gold-200: #FFF070;
+  --color-gold-300: #FFE83A;
+  --color-gold-400: #FFDF00;
+  --color-gold-500: #FFD700;
+  --color-gold-600: #D4B000;
+  --color-gold-700: #A68A00;
+  --color-gold-800: #786400;
+  --color-gold-900: #4A3F00;
+  --color-blue-50: #E6F0FF;
+  --color-blue-100: #CCE3FF;
+  --color-blue-200: #99C7FF;
+  --color-blue-300: #66AAFF;
+  --color-blue-400: #338EFF;
+  --color-blue-500: #0066FF;
+  --color-blue-600: #0052CC;
+  --color-blue-700: #003D99;
+  --color-blue-800: #002966;
+  --color-blue-900: #001433;
+  --color-white: #FFFFFF;
+  --color-gray-100: #F7F7F7;
+  --color-gray-200: #E5E7EB;
+  --color-gray-500: #6B7280;
+  --color-gray-700: #374151;
+
+  /* Additional colors for Button */
+  --color-green-50: #F0FDF4;
+  --color-green-100: #DCFCE7;
+  --color-green-200: #BBF7D0;
+  --color-green-500: #10B981;
+  --color-green-600: #059669;
+  --color-yellow-50: #FEFCE8;
+  --color-yellow-100: #FEF9C3;
+  --color-yellow-200: #FEF08A;
+  --color-yellow-500: #F59E0B;
+  --color-yellow-600: #D97706;
+  --color-red-50: #FEF2F2;
+  --color-red-100: #FEE2E2;
+  --color-red-200: #FECACA;
+  --color-red-500: #EF4444;
+  --color-red-600: #DC2626;
+}
+
+:root {
+  --theme-primary: var(--color-gold-400);
+  --theme-blue: var(--color-blue-400);
+  --theme-text: var(--color-gray-700);
+  --theme-background: var(--color-white);
+  --theme-border: var(--color-gray-200);
+}
+
+.dark {
+  --theme-primary: var(--color-gold-300);
+  --theme-blue: var(--color-blue-300);
+  --theme-text: var(--color-gray-100);
+  --theme-background: var(--color-gray-700);
+  --theme-border: var(--color-gray-500);
+}
+
+/* Existing sidebar and utility classes unchanged */
+
+/* Utility Classes */
+@layer utilities {
+  /* Theme Colors */
+  .bg-theme-primary { background-color: var(--theme-primary); }
+  .text-theme-primary { color: var(--theme-primary); }
+  .border-theme-primary { border-color: var(--theme-primary); }
+  .ring-theme-primary { --tw-ring-color: var(--theme-primary); }
+  .bg-theme-blue { background-color: var(--theme-blue); }
+  .text-theme-blue { color: var(--theme-blue); }
+  .border-theme-blue { border-color: var(--theme-blue); }
+  .ring-theme-blue { --tw-ring-color: var(--theme-blue); }
+  .bg-theme-background { background-color: var(--theme-background); }
+  .text-theme-text { color: var(--theme-text); }
+  .border-theme-border { border-color: var(--theme-border); }
+
+  /* Sidebar Utilities */
+  .bg-sidebar-background { background-color: var(--sidebar-background); }
+  .text-sidebar-foreground { color: var(--sidebar-foreground); }
+  .bg-sidebar-primary { background-color: var(--sidebar-primary); }
+  .text-sidebar-primary-foreground { color: var(--sidebar-primary-foreground); }
+  .bg-sidebar-accent { background-color: var(--sidebar-accent); }
+  .text-sidebar-accent-foreground { color: var(--sidebar-accent-foreground); }
+  .border-sidebar-border { border-color: var(--sidebar-border); }
+  .ring-sidebar-ring { --tw-ring-color: var(--sidebar-ring); }
+
+  /* Additional Utilities for Textarea */
+  .placeholder-theme-primary::placeholder { color: var(--theme-primary); }
+  .placeholder-theme-blue::placeholder { color: var(--theme-blue); }
+  .focus-ring-theme-primary:focus { --tw-ring-color: var(--theme-primary); }
+  .focus-ring-theme-blue:focus { --tw-ring-color: var(--theme-blue); }
+}
+
