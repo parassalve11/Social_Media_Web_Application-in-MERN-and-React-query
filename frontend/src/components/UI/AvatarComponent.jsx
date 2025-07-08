@@ -33,7 +33,7 @@ const AvatarComponent = ({
 
   return (
     <div
-      className={`relative inline-flex items-center justify-center overflow-hidden rounded-full bg-gray-200 ${className}`}
+      className={`inline-flex items-center justify-center overflow-hidden rounded-full bg-gray-200 ${className}`}
       style={{ width: size, height: size }}
       onClick={onClick}
       role={onClick ? "button" : undefined}

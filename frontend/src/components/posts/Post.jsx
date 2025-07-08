@@ -187,7 +187,8 @@ const highlightContent = (text) => {
           </div>
         </UserTooltip>
         {isOwner && (
-          <DropdownComponent
+        <div  style={{ position: "relative", zIndex: 1000 }}>
+            <DropdownComponent
             triggerElement={
               <button
                 variant="solid"
@@ -203,6 +204,7 @@ const highlightContent = (text) => {
             onSelect={handleOptionSelect}
             variant="default"
           />
+        </div>
         )}
       </div>
 

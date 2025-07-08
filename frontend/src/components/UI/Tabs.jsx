@@ -87,7 +87,7 @@ const Tabs = ({
 
 // TabsList component
 const TabsList = React.forwardRef(({ className, variant, ...props }, ref) => {
-  const baseStyles = "inline-flex w-full items-center justify-start p-1 sticky top-0 z-10";
+  const baseStyles = "inline-flex w-full items-center justify-start p-1 sticky top-[-30px] z-10";
   const variantStyles = {
     default: "bg-white border-b border-gray-200",
     underline: "bg-white border-b-2 border-gray-200",

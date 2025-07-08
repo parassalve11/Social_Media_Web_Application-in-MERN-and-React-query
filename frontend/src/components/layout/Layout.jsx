@@ -4,6 +4,9 @@ import SidebarLayout from "../UI/sidebar/SidebarLayout";
 import { FaGithub, FaTwitter } from "react-icons/fa";
 import { useQuery } from "@tanstack/react-query";
 import axiosInstance from "../../lib/axiosIntance"; 
+import TrendingBar from "../TrendingBar";
+import RecommendedUsers from "../RecommandedUsers";
+
 
 function Layout({ children }) {
   const {
@@ -45,6 +48,7 @@ function Layout({ children }) {
   return (
     <div className="min-h-screen bg-white overflow-visible">
       <Navbar />
+    
       <SidebarLayout
         menuItems={menuItems}
         logo={<div className="text-2xl font-bold text-blue-600">MyApp</div>}
@@ -76,8 +80,9 @@ function Layout({ children }) {
           </div>
         }
       >
-        {children}
+       <main className="h-screen">{children}</main>
       </SidebarLayout>
+       
     </div>
   );
 }

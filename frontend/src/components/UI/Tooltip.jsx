@@ -6,7 +6,7 @@ const Tooltip = ({
   content,
   className = '',
   delay = 0.2,
-  minShowTime = 2,
+  minShowTime = 0.1,
 }) => {
   const tooltipRef = useRef(null);
   const triggerRef = useRef(null);
@@ -23,10 +23,12 @@ const Tooltip = ({
       const tooltipRect = tooltip.getBoundingClientRect();
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
+      const isMobile = viewportWidth < 640; // sm breakpoint
+      const isMedium = viewportWidth < 1024; // md breakpoint
 
-      // Default position classes and arrow classes
-      let positionClasses = '';
-      let arrowClasses = '';
+      // Adjust required space based on screen size
+      const tooltipWidth = isMobile ? 180 : isMedium ? 240 : 256; // Approximate widths based on w-48, w-60, w-64
+      const tooltipHeight = tooltipRect.height;
 
       // Determine best position based on available space
       const spaceAbove = triggerRect.top;
@@ -34,12 +36,11 @@ const Tooltip = ({
       const spaceLeft = triggerRect.left;
       const spaceRight = viewportWidth - triggerRect.right;
 
-      // Prioritize based on largest available space
       const spaces = [
-        { pos: 'top', space: spaceAbove, required: tooltipRect.height + 8 },
-        { pos: 'bottom', space: spaceBelow, required: tooltipRect.height + 8 },
-        { pos: 'left', space: spaceLeft, required: tooltipRect.width + 8 },
-        { pos: 'right', space: spaceRight, required: tooltipRect.width + 8 },
+        { pos: 'top', space: spaceAbove, required: tooltipHeight + 8 },
+        { pos: 'bottom', space: spaceBelow, required: tooltipHeight + 8 },
+        { pos: 'left', space: spaceLeft, required: tooltipWidth + 8 },
+        { pos: 'right', space: spaceRight, required: tooltipWidth + 8 },
       ];
 
       // Find the position with the most available space
@@ -48,9 +49,11 @@ const Tooltip = ({
           return current;
         }
         return best;
-      }, { pos: 'top', space: spaceAbove, required: tooltipRect.height + 8 });
+      }, { pos: 'top', space: spaceAbove, required: tooltipHeight + 8 });
 
       // Set position classes based on best position
+      let positionClasses = '';
+      let arrowClasses = '';
       switch (bestPosition.pos) {
         case 'top':
           positionClasses = 'bottom-full mb-2 left-1/2 -translate-x-1/2';
@@ -87,8 +90,8 @@ const Tooltip = ({
       // Update position classes dynamically
       const { positionClasses, arrowClasses } = calculatePosition();
       tooltip.className = `
-        absolute z-10 px-3 py-2 text-sm text-white bg-gray-800 rounded-lg shadow-lg
-        opacity-0 scale-75 transform pointer-events-auto
+        absolute z-[1010] px-3 py-2 text-sm text-white bg-gray-800 rounded-lg shadow-lg
+        opacity-0 scale-90 transform pointer-events-auto
         ${positionClasses}
         ${className}
       `;
@@ -100,7 +103,7 @@ const Tooltip = ({
       gsap.to(tooltip, {
         opacity: 1,
         scale: 1,
-        duration: 0.3,
+        duration: 0.2,
         ease: 'power2.out',
         delay,
       });
@@ -110,9 +113,12 @@ const Tooltip = ({
       if (!isHoveringTrigger.current && !isHoveringTooltip.current) {
         gsap.to(tooltip, {
           opacity: 0,
-          scale: 0.8,
-          duration: 0.2,
+          scale: 0.9,
+          duration: 0.15,
           ease: 'power2.in',
+          onComplete: () => {
+            tooltip.style.opacity = '0';
+          },
         });
       }
     };
@@ -138,18 +144,41 @@ const Tooltip = ({
       timeoutRef.current = setTimeout(hideTooltip, minShowTime * 1000);
     };
 
+    const handleScroll = () => {
+      isHoveringTrigger.current = false;
+      isHoveringTooltip.current = false;
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      hideTooltip();
+    };
+
     // Event listeners
     trigger.addEventListener('mouseenter', handleTriggerEnter);
     trigger.addEventListener('mouseleave', handleTriggerLeave);
     tooltip.addEventListener('mouseenter', handleTooltipEnter);
     tooltip.addEventListener('mouseleave', handleTooltipLeave);
+    window.addEventListener('scroll', handleScroll);
+
+    // Touch support for mobile
+    const handleTouchStart = (e) => {
+      e.preventDefault();
+      if (!isHoveringTrigger.current) {
+        showTooltip();
+        timeoutRef.current = setTimeout(hideTooltip, minShowTime * 1000);
+      }
+    };
+
+    trigger.addEventListener('touchstart', handleTouchStart);
 
     // Cleanup
     return () => {
       trigger.removeEventListener('mouseenter', handleTriggerEnter);
       trigger.removeEventListener('mouseleave', handleTriggerLeave);
+      trigger.removeEventListener('touchstart', handleTouchStart);
       tooltip.removeEventListener('mouseenter', handleTooltipEnter);
       tooltip.removeEventListener('mouseleave', handleTooltipLeave);
+      window.removeEventListener('scroll', handleScroll);
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
@@ -157,14 +186,13 @@ const Tooltip = ({
   }, [delay, minShowTime, className]);
 
   return (
-    <div className="relative inline-block ">
+    <div className="relative inline-block">
       <div ref={triggerRef} className="inline-block">
         {children}
       </div>
-
       <div
         ref={tooltipRef}
-        className="absolute z-10 px-3 py-2 text-sm text-white bg-gray-800 rounded-lg shadow-lg opacity-0 scale-75 transform pointer-events-auto"
+        className="absolute z-[1010] px-3 py-2 text-sm text-white bg-gray-800 rounded-lg shadow-lg opacity-0 scale-90 transform pointer-events-auto"
       >
         {content}
         <div className="tooltip-arrow absolute w-2 h-2 bg-gray-800 rotate-45" />

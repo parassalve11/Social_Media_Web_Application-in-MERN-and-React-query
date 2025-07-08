@@ -7,14 +7,17 @@ import ReactQueryProvider from "../src/lib/ReactQueryProvider.jsx";
 import { ToastManager } from "./components/UI/ToastManager.jsx";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 
+
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <BrowserRouter>
       <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
         <ReactQueryProvider>
-          <ToastManager>
-            <App />
-          </ToastManager>
+    
+            <ToastManager>
+              <App />
+            </ToastManager>
+        
         </ReactQueryProvider>
       </GoogleOAuthProvider>
     </BrowserRouter>
