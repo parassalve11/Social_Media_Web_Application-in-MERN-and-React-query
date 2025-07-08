@@ -1,12 +1,30 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import axiosInstance from "../lib/axiosIntance"; 
 import { useToast } from "../components/UI/ToastManager";
 import { Users } from "lucide-react";
 
+
+function useDebounce(value, delay) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
 export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState("");
+    const debouncedSearchQuery = useDebounce(searchQuery, 500); 
   const { addToast } = useToast();
   const queryClient = useQueryClient();
 
@@ -17,13 +35,13 @@ export default function SearchPage() {
 
   // Search users
   const { data: searchResults, isLoading: isSearchLoading, isError, error } = useQuery({
-    queryKey: ["searchUsers", searchQuery],
+    queryKey: ["searchUsers", debouncedSearchQuery], // Use debounced query
     queryFn: async () => {
-      if (!searchQuery.trim()) return [];
-      const res = await axiosInstance.get(`/users/search?q=${encodeURIComponent(searchQuery)}`);
+      if (!debouncedSearchQuery.trim()) return [];
+      const res = await axiosInstance.get(`/users/search?q=${encodeURIComponent(debouncedSearchQuery)}`);
       return res.data;
     },
-    enabled: !!searchQuery.trim(), // Only run if query is non-empty
+    enabled: !!debouncedSearchQuery.trim(),
     onError: (err) => {
       console.error("Error fetching search results:", err.message);
       addToast("Failed to load search results", { type: "error", duration: 3000 });
@@ -102,7 +120,7 @@ export default function SearchPage() {
   };
 
   return (
-    <div className="mx-auto px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:max-w-5xl w-full bg-white rounded-xl shadow-lg">
+    <div className="mx-auto px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:max-w-7xl w-full bg-white rounded-xl shadow-lg">
       <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-gray-900 mb-4 sm:mb-6 md:mb-8">
         Search Users
       </h1>

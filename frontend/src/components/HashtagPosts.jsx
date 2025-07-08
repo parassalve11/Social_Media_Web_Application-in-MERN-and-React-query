@@ -4,8 +4,6 @@ import { useParams, Link } from "react-router-dom";
 import axiosInstance from "../lib/axiosIntance";
 import { useToast } from "./UI/ToastManager"; 
 import { useEffect, useState } from "react";
-import { Heart, MessageSquare, Bookmark } from "lucide-react";
-import AvatarComponent from "./UI/AvatarComponent"; 
 import Post from "./posts/Post";
 import PostSkeleton from "./posts/PostSkeleton";
 
