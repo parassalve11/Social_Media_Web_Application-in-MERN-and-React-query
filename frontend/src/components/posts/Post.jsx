@@ -19,7 +19,6 @@ import { Link, useParams } from "react-router-dom";
 import Dialog from "../UI/Dialog";
 import DropdownComponent from "../UI/DropdownComponent";
 import UserTooltip from "../userTooltip";
-import UserLinkWithTooltip from "../UserLinkWithTooltip";
 
 export default function Post({ post }) {
   const { hashtag } = useParams();
@@ -128,40 +127,30 @@ export default function Post({ post }) {
     { label: "Delete", value: "delete", icon: <Trash2 /> },
   ];
 
- // Adjust import as needed
+  const highlightContent = (text) => {
+    if (!text) return "";
 
+    const escapedText = text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#x27;");
 
-
-// Adjust import as needed
-
-const highlightContent = (text) => {
-  if (!text) return "";
-
-  // Fix HTML escaping
-  const escapedText = text
-    .replace(/&/g, "&")
-    .replace(/</g, "<")
-    .replace(/>/g, ">")
-    .replace(/"/g, `"`)
-    .replace(/'/g, "'");
-
-  // Highlight hashtags and mentions as HTML strings
-  return escapedText.replace(
-    /(#\w+)|(@\w+)/g,
-    (match) =>
-      match.startsWith("#")
-        ? `<a href="/hashtag/${match.slice(1)}" class="text-blue-600 font-bold underline cursor-pointer">${match}</a>`
-        : `<a href="/profile/${match.slice(1)}" class="text-teal-600 font-bold underline cursor-pointer">${match}</a>`
-  );
-};
-
-
+    return escapedText.replace(
+      /(#\w+)|(@\w+)/g,
+      (match) =>
+        match.startsWith("#")
+          ? `<a href="/hashtag/${match.slice(1)}" class="text-blue-600 font-bold underline cursor-pointer">${match}</a>`
+          : `<a href="/profile/${match.slice(1)}" class="text-teal-600 font-bold underline cursor-pointer">${match}</a>`
+    );
+  };
 
   return (
-    <article className="bg-white rounded-xl shadow-md border border-gray-200 mb-6 p-6 mx-auto max-w-4xl">
+    <article className="bg-white rounded-xl shadow-md border border-gray-200 mb-6 p-6 mx-auto max-w-2xl">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <UserTooltip user={post?.author} delay={0.2} minShowTime={2}>
+        <UserTooltip user={post?.author} delay={0.2} minShowTime={1}>
           <div className="flex items-center gap-3">
             <Link to={`/profile/${post.author?.username}`}>
               <img
@@ -187,32 +176,30 @@ const highlightContent = (text) => {
           </div>
         </UserTooltip>
         {isOwner && (
-        <div  style={{ position: "relative", zIndex: 1000 }}>
+          <div style={{ position: "relative", zIndex: 1000 }}>
             <DropdownComponent
-            triggerElement={
-              <button
-                variant="solid"
-                size="sm"
-                isIconOnly
-                className="text-black"
-              >
-                <MoreHorizontal size={20} className="text-black" />
-              </button>
-            }
-            options={options}
-            className="shadow-lg rounded-md text-black"
-            onSelect={handleOptionSelect}
-            variant="default"
-          />
-        </div>
+              triggerElement={
+                <PostAction
+                  icon={<MoreHorizontal size={20} className="text-gray-500" />}
+                  text=""
+                  className="p-2 rounded-full hover:bg-gray-100"
+                />
+              }
+              options={options}
+              className="shadow-lg rounded-md text-black"
+              onSelect={handleOptionSelect}
+              variant="default"
+            />
+          </div>
         )}
       </div>
 
       {/* Content */}
       <p
-        className="text-gray-700 md:text-base text-sm mb-4 break-words leading-relaxed line-clamp-6"
+        className="text-gray-700 md:text-base text-sm mb-4 break-words leading-relaxed min-h-[2rem]"
         dangerouslySetInnerHTML={{ __html: highlightContent(post.content) }}
       />
+
       {post.image && (
         <div className="relative w-full max-w-lg mx-auto mb-4">
           <img
@@ -225,7 +212,7 @@ const highlightContent = (text) => {
       )}
 
       {/* Actions */}
-      <div className="flex justify-between items-center border-t pt-3 mb-3">
+      <div className="flex justify-between items-center border-t pt-3 mb-3 z-50">
         <PostAction
           icon={
             <ThumbsUp
@@ -235,7 +222,7 @@ const highlightContent = (text) => {
           }
           text={`Like ${post.likes?.length || 0}`}
           onClick={handleLikePost}
-          className={`hover:bg-blue-50 rounded-md px-3 py-2 transition-all duration-200 ${isLiked ? "text-blue-600 font-semibold" : ""}`}
+          className={`hover:bg-blue-50 rounded-md px-3 py-2 transition-colors duration-200 pointer-events-auto ${isLiked ? "text-blue-600 font-semibold" : ""}`}
         />
         <PostAction
           icon={
@@ -246,7 +233,7 @@ const highlightContent = (text) => {
           }
           text={`${comments.length}`}
           onClick={() => setShowComment(!showComment)}
-          className="hover:bg-blue-50 rounded-md px-3 py-2 transition-all duration-200"
+          className="hover:bg-blue-50 rounded-md px-3 py-2 transition-colors duration-200 pointer-events-auto"
         />
         <PostAction
           icon={
@@ -257,12 +244,12 @@ const highlightContent = (text) => {
           }
           text="Bookmark"
           onClick={handleBookmarkPost}
-          className={`hover:bg-blue-50 rounded-md px-3 py-2 transition-all duration-200 ${isBookmarked ? "text-blue-600 font-semibold" : ""}`}
+          className={`hover:bg-blue-50 rounded-md px-3 py-2 transition-colors duration-200 pointer-events-auto ${isBookmarked ? "text-blue-600 font-semibold" : ""}`}
         />
         <PostAction
           icon={<Share size={20} className="text-gray-500" />}
           text="Share"
-          className="hover:bg-blue-50 rounded-md px-3 py-2 transition-all duration-200"
+          className="hover:bg-blue-50 rounded-md px-3 py-2 transition-colors duration-200 pointer-events-auto"
         />
       </div>
 
@@ -305,20 +292,14 @@ const highlightContent = (text) => {
               placeholder="Write a comment..."
               className="flex-1 p-3 rounded-full bg-gray-100 border border-gray-200 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-all duration-200"
             />
-            <button
-              type="submit"
-              variant="solid"
-              color="primary"
-              size="sm"
+            <PostAction
+              icon={<Send size={18} className="text-blue-600" />}
+              text=""
+              onClick={handleAddComment}
               isLoading={isCommenting}
               isDisabled={!newComment.trim()}
-              radius="full"
-              isIconOnly
-              spinner={<Loader2 className="animate-spin" />}
-              className="bg-blue-600 hover:bg-blue-700 p-3 text-white"
-            >
-              <Send size={18} />
-            </button>
+              className="p-3 rounded-full hover:bg-blue-50"
+            />
           </form>
         </div>
       )}
