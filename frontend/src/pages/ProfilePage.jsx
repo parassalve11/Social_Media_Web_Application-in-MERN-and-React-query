@@ -129,8 +129,6 @@ export default function ProfilePage() {
     );
   }
 
-  // const isFollower = authUser && userData.followers?.some((follower) => follower === authUser._id);
-// console.log(isFollower);
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 sm:px-6 lg:px-8">

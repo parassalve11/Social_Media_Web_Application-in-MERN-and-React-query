@@ -9,6 +9,8 @@ import postRoutes from "./routers/post.route.js";
 import notificationRoutes from "./routers/notification.route.js";
 import followRoutes from "./routers/follow.route.js";
 import userRoutes from "./routers/user.route.js";
+import { sendOtpToConsumers } from "./lib/mail.js";
+import { redisClient } from "./lib/redis.js";
 
 dotenv.config();
 
@@ -32,5 +34,6 @@ app.use('/api/v1/users',userRoutes);
 
 app.listen(PORT,() =>{
     console.log("Server is Running on ", PORT);
+    sendOtpToConsumers();
     connectDB();
 })

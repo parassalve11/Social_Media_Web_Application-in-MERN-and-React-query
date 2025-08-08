@@ -6,7 +6,6 @@ import { formatDistanceToNowStrict } from "date-fns";
 import {
   Bookmark,
   Edit2,
-  Loader2,
   MessageCircle,
   MoreHorizontal,
   Send,
@@ -19,16 +18,20 @@ import { Link, useParams } from "react-router-dom";
 import Dialog from "../UI/Dialog";
 import DropdownComponent from "../UI/DropdownComponent";
 import UserTooltip from "../userTooltip";
+import EditPostDialog from "./EditPostDialog";
+import PostEditor from "./PostEditor";
 
 export default function Post({ post }) {
   const { hashtag } = useParams();
   const [newComment, setNewComment] = useState("");
-  const [comments, setComments] = useState(post.comments || []);
+  const [comments, setComments] = useState(post?.comments || []);
   const [showComment, setShowComment] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showEditDialog , setShowEditDialog] = useState(false)
   const { addToast } = useToast();
 
   const { data: authUser } = useQuery({ queryKey: ["authUser"] });
+  
 
   const isOwner = authUser?._id === post.author?._id;
   const isLiked = post.likes?.includes(authUser?._id);
@@ -36,10 +39,14 @@ export default function Post({ post }) {
 
   const queryClient = useQueryClient();
 
+ 
+
   const { mutate: deletingPostMuation, isPending: isDeletingPost } = useMutation({
     mutationFn: async () => await axiosInstance.delete(`/posts/delete/${post._id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["for-you"] });
+      queryClient.invalidateQueries({ queryKey: ["following"] });
+      queryClient.invalidateQueries({ queryKey: ["posts" , post._id] });
       addToast("Post Deleted successfully", { type: "success", duration: 3000 });
     },
     onError: (error) => {
@@ -52,6 +59,8 @@ export default function Post({ post }) {
       await axiosInstance.post(`/posts/${post._id}/comment`, { content: newComment }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["for-you"] });
+      queryClient.invalidateQueries({ queryKey: ["following"] });
+      queryClient.invalidateQueries({ queryKey: ["posts" , post._id] });
       addToast("Commented successfully", { type: "success", duration: 3000 });
     },
     onError: (error) => {
@@ -63,6 +72,8 @@ export default function Post({ post }) {
     mutationFn: async () => await axiosInstance.post(`/posts/${post._id}/like`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["for-you"] });
+      queryClient.invalidateQueries({ queryKey: ["following"] });
+      queryClient.invalidateQueries({ queryKey: ["posts" , post._id] });
       queryClient.invalidateQueries({ queryKey: ["hashtagPosts", hashtag] });
     },
     onError: (error) => {
@@ -74,6 +85,8 @@ export default function Post({ post }) {
     mutationFn: async () => await axiosInstance.post(`/posts/${post._id}/bookmark`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["for-you"] });
+      queryClient.invalidateQueries({ queryKey: ["following"] });
+      queryClient.invalidateQueries({ queryKey: ["posts" , post._id] });
       queryClient.invalidateQueries({ queryKey: ["hashtagPosts", hashtag] });
       addToast(`🔖 Post bookmarked`, { type: "success", duration: 3000 });
     },
@@ -81,6 +94,8 @@ export default function Post({ post }) {
       addToast(error.message || "Failed to Bookmark", { type: "error", duration: 3000 });
     },
   });
+
+  
 
   const handleLikePost = () => {
     if (isLiking) return;
@@ -119,11 +134,13 @@ export default function Post({ post }) {
   const handleOptionSelect = (value) => {
     if (value === "delete") {
       setShowDeleteDialog(true);
+    }else if(value === "edit"){
+      setShowEditDialog(true)
     }
   };
 
   const options = [
-    { label: "Edit", value: "edit", icon: <Edit2 />, href: "/posts/edit" },
+    { label: "Edit", value: "edit", icon: <Edit2 /> },
     { label: "Delete", value: "delete", icon: <Trash2 /> },
   ];
 
@@ -150,31 +167,32 @@ export default function Post({ post }) {
     <article className="bg-white rounded-xl shadow-md border border-gray-200 mb-6 p-6 mx-auto max-w-2xl">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <UserTooltip user={post?.author} delay={0.2} minShowTime={1}>
           <div className="flex items-center gap-3">
+        <UserTooltip user={post?.author} delay={0.2} minShowTime={1}>
             <Link to={`/profile/${post.author?.username}`}>
               <img
                 src={post.author?.avatar || "/placeholder.png"}
                 alt={post.author?.name || "User"}
                 className="w-14 h-14 rounded-full border-2 border-gray-200 object-cover hover:scale-105 transition-transform duration-200"
                 loading="lazy"
-              />
+                />
             </Link>
+                </UserTooltip>
             <div>
               <Link to={`/profile/${post.author?.username}`}>
-                <h3 className="text-lg font-semibold hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">
+                <h3 className="text-lg flex items-center gap-2 font-semibold hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">
                   {post.author?.name || "Unknown User"}
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                @{post.author?.username || ""}
+              </p>
                 </h3>
               </Link>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {post.author?.headline || ""}
-              </p>
+              
               <time className="text-xs text-gray-400 dark:text-gray-500">
                 {formatDistanceToNowStrict(new Date(post.createdAt))} ago
               </time>
             </div>
           </div>
-        </UserTooltip>
         {isOwner && (
           <div style={{ position: "relative", zIndex: 1000 }}>
             <DropdownComponent
@@ -195,6 +213,7 @@ export default function Post({ post }) {
       </div>
 
       {/* Content */}
+     <Link to={`/post/${post._id}`}> 
       <p
         className="text-gray-700 md:text-base text-sm mb-4 break-words leading-relaxed min-h-[2rem]"
         dangerouslySetInnerHTML={{ __html: highlightContent(post.content) }}
@@ -210,6 +229,7 @@ export default function Post({ post }) {
           />
         </div>
       )}
+     </Link>
 
       {/* Actions */}
       <div className="flex justify-between items-center border-t pt-3 mb-3 z-50">
@@ -319,6 +339,7 @@ export default function Post({ post }) {
         actionButtonClass="bg-red-600 hover:bg-red-700 text-white"
         cancelButtonClass="bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200"
       />
+    <EditPostDialog post={post} showEditDialog={showEditDialog} setShowEditDialog={setShowEditDialog} />
     </article>
   );
 }

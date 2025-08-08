@@ -12,6 +12,7 @@ import FollowersPage from "./pages/FollowersPage.jsx";
 import FollowingPage from "./pages/FollowingPage.jsx";
 import HashtagPosts from "./components/HashtagPosts.jsx";
 import SearchPage from "./pages/SearchPage.jsx";
+import PostPage from "./pages/PostPage.jsx";
 
 
 
@@ -73,8 +74,12 @@ function App() {
             element={authUser ? <FollowingPage /> : <Navigate to={"/signin"} />}
           />
 
-          <Route path="/hashtag/:hashtag" element={<HashtagPosts />} />
-          <Route path="/search" element={<SearchPage />} />
+          <Route path="/hashtag/:hashtag" element={ authUser ? <HashtagPosts /> : <Navigate to={"/signin"} />} 
+          />
+          <Route path="/search" element={ authUser ?<SearchPage /> : <Navigate to={"/signin"} />} 
+          />
+
+          <Route path="/post/:postId" element={authUser ? <PostPage />: <Navigate to={"/signin"}/>} />
         
         </Routes>
 

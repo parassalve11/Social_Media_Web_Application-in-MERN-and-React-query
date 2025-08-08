@@ -12,6 +12,7 @@
   "description": "",
   "type": "module",
   "dependencies": {
+    "amqplib": "^0.10.8",
     "bcrypt": "^6.0.0",
     "cloudinary": "^2.6.1",
     "cookie-parser": "^1.4.7",
@@ -25,6 +26,8 @@
     "lucide-react": "^0.513.0",
     "mongodb": "^6.16.0",
     "mongoose": "^8.15.1",
-    "nodemon": "^3.1.10"
+    "nodemailer": "^7.0.5",
+    "nodemon": "^3.1.10",
+    "redis": "^5.8.0"
   }
 }

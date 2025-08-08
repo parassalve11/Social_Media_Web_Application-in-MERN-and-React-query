@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { protectRoute } from "../middlewares/auth.middleware.js";
-import { bookmarkPost, createComment, createPost, deletePost,  getBookmarkPosts,  getFollowingPostFeed, getPostById, getPostFeeds, getPostsByHashtag, getTrendingHashtags, likePost } from "../controllers/post.controller.js";
+import { bookmarkPost, createComment, createPost, deletePost,  getBookmarkPosts,  getFollowingPostFeed, getPostById, getPostFeeds, getPostsByHashtag, getTrendingHashtags, likePost, updatePost } from "../controllers/post.controller.js";
 
 
 const router = Router();
@@ -11,6 +11,7 @@ router.get("/for-you", protectRoute, getPostFeeds);
 router.get("/following", protectRoute, getFollowingPostFeed);
 router.post("/create", protectRoute, createPost);
 router.delete("/delete/:id", protectRoute, deletePost);
+router.put("/edit/:id" , protectRoute , updatePost);
 router.get("/:id", protectRoute, getPostById);
 router.post("/:id/like", protectRoute, likePost);
 router.post("/:id/comment", protectRoute, createComment);

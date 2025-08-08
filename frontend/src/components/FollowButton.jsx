@@ -23,7 +23,7 @@ export default function FollowButton({ userId }) {
       queryClient.invalidateQueries({ queryKey: ["follow"] });
       queryClient.invalidateQueries({ queryKey: ["profile"] });
       queryClient.invalidateQueries({ queryKey: ["authUser"] });
-      queryClient.invalidateQueries({ queryKey: ["recommendedUsers"] });
+      // queryClient.invalidateQueries({ queryKey: ["recommendedUsers"] });
     
     },
     onError: (error) => {

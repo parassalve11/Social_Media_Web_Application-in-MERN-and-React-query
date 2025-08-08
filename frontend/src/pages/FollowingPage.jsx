@@ -45,7 +45,6 @@ export default function FollowingPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["following", username] });
       queryClient.invalidateQueries({ queryKey: ["follow"] });
-      queryClient.invalidateQueries({ queryKey: ["profile", username] });
       queryClient.invalidateQueries({ queryKey: ["authUser"] });
       addToast("Followed user", { type: "success", duration: 3000 });
     },

@@ -2,6 +2,8 @@ import User from "../models/user.model.js";
 import bcrypt from "bcrypt";
 import { OAuth2Client } from "google-auth-library";
 import jwt from "jsonwebtoken";
+import { redisClient } from "../lib/redis.js";
+import { publishToQueue } from "../lib/mail.js";
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -173,3 +175,79 @@ export const getCurrentUser = async (req, res) => {
     res.status(500).json({ message: "Server Error " });
   }
 };
+
+
+
+export const emailExist = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: "Email is required for password reset." });
+    }
+
+    const existingUser = await User.findOne({ email }).select("-password");
+
+    if (!existingUser) {
+      return res.status(404).json({ message: "Email not found." });
+    }
+
+    const rateLimitKey = `otp:ratelimit:${email}`;
+    const isRateLimited = await redisClient.get(rateLimitKey);
+
+    if (isRateLimited) {
+      return res.status(429).json({ message: "Please wait 1 minute before requesting another OTP." });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000); 
+    const otpKey = `otp:${email}`;
+
+    
+    await redisClient.set(otpKey, otp.toString(), { EX: 300 });
+
+  
+    await redisClient.set(rateLimitKey, "true", { EX: 60 });
+
+    const message = {
+      to: email,
+      subject: "Your OTP Code for Password Reset",
+      body: otp.toString()
+    };
+
+    await publishToQueue("send-otp", message);
+
+    return res.status(200).json({ message: `OTP sent successfully to ${email}` });
+
+  } catch (error) {
+    console.error("Error in emailExist Controller:", error.message);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+
+export const verifyUser = async(req,res) =>{
+  try {
+    const{email , otp:enteredOtp} = req.body;
+
+    if(!email || !enteredOtp){
+      res.status(400).json({message:"Email and Otp is requied."})
+      return
+    };
+
+    const otpKey = `otp:${email}`;
+
+    const storedOtp = await redisClient.get(otpKey);
+
+    if(!storedOtp || storedOtp !== enteredOtp){
+      res.status(400).json({message:"Invalid or Expire otp"})
+      return
+    }
+
+    await redisClient.del(otpKey)
+
+    res.json({message:"User verifed sucessfully for reset password."})
+  } catch (error) {
+    console.log("Error in verifyUser controller",error.message);
+    res.status(500).json({message:"Server Error"})
+  }
+}

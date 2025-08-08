@@ -1,4 +1,3 @@
-
 import mongoose from "mongoose";
 import cloudinary from "../lib/cloudinary.js";
 import Notification from "../models/notification.model.js";
@@ -7,7 +6,7 @@ import Post from "../models/post.model.js";
 export const getPostFeeds = async (req, res) => {
   try {
     const cursor = req.query.cursor || null;
-    const pageSize = 7; 
+    const pageSize = 7;
 
     const query = {};
     let postsQuery = Post.find(query)
@@ -17,7 +16,7 @@ export const getPostFeeds = async (req, res) => {
       .limit(pageSize + 1); // Fetch one extra post to check for more
 
     if (cursor) {
-      postsQuery = postsQuery.where('_id').lt(cursor); // Fetch posts before the cursor
+      postsQuery = postsQuery.where("_id").lt(cursor); // Fetch posts before the cursor
     }
 
     const posts = await postsQuery.exec();
@@ -42,7 +41,9 @@ export const getFollowingPostFeed = async (req, res) => {
     const following = req.user.following;
 
     if (!following || following.length === 0) {
-      return res.status(200).json({ posts: [], nextCursor: null, hasMore: false });
+      return res
+        .status(200)
+        .json({ posts: [], nextCursor: null, hasMore: false });
     }
 
     let postsQuery = Post.find({
@@ -57,7 +58,7 @@ export const getFollowingPostFeed = async (req, res) => {
       if (!mongoose.isValidObjectId(cursor)) {
         return res.status(400).json({ message: "Invalid cursor" });
       }
-      postsQuery = postsQuery.where('_id').lt(cursor); // Fetch posts before the cursor
+      postsQuery = postsQuery.where("_id").lt(cursor); // Fetch posts before the cursor
     }
 
     const posts = await postsQuery.exec();
@@ -141,14 +142,63 @@ export const deletePost = async (req, res) => {
   }
 };
 
+export const updatePost = async (req, res) => {
+  try {
+    const postId = req.params.id;
+
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      res.status(400).json({ message: "Post not Found" });
+    }
+
+    const allowedFields = ["content", "image"];
+
+    const updatedData = {};
+
+    for (let field of allowedFields) {
+      if (req.body[field]) {
+        updatedData[field] = req.body[field];
+      }
+    }
+
+    if (req.body.image) {
+      if (post.image) {
+        const publicId = post.image.split("/").pop().split(".")[0];
+        await cloudinary.uploader.destroy(publicId);
+      }
+      const result = await cloudinary.uploader.upload(req.body.image);
+      updatedData.image = result.secure_url;
+    }
+
+    await Post.findByIdAndUpdate(
+      postId,
+      { $set: updatedData },
+      { new: true }
+    ).select("-password");
+
+    res.status(201).json("Post Edited successfully");
+  } catch (error) {
+    console.log("Error in updatePost Controller", error.message);
+
+    res.status(500).json({ message: "Server Error" });
+  }
+};
+
 export const getPostById = async (req, res) => {
   try {
     const postId = req.params.id;
 
-    const posts = await Post.findById({ postId })
+    const posts = await Post.findById({ _id: postId })
       .populate("author", "name username avatar bio followers following")
-      .populate("comments.user", "name username avatar bio followers following");
+      .populate(
+        "comments.user",
+        "name username avatar bio followers following"
+      );
 
+    if (!posts) {
+      res.status(400).json({ message: "Post not Found" });
+    }
     res.json(posts);
   } catch (error) {
     console.log("Error in getPostById Controller", error.message);
@@ -249,19 +299,17 @@ export const getBookmarkPosts = async (req, res) => {
     const posts = await Post.find({ bookmarks: userId })
       .sort({ createdAt: -1 })
       .populate("author", "name username avatar bio followers following")
-      .populate("comments.user", "name username avatar bio followers following");
+      .populate(
+        "comments.user",
+        "name username avatar bio followers following"
+      );
 
-      res.status(200).json(posts);
-
-   
+    res.status(200).json(posts);
   } catch (error) {
     console.log("Error in likePost Controller", error.message);
     res.status(500).json({ message: "Server Error" });
   }
 };
-
-
-
 
 export const getTrendingHashtags = async (req, res) => {
   try {
@@ -317,11 +365,6 @@ export const getTrendingHashtags = async (req, res) => {
   }
 };
 
-
-
-
-
-
 export const getPostsByHashtag = async (req, res) => {
   try {
     const { hashtag } = req.params; // Hashtag from URL (e.g., "coding")
@@ -341,7 +384,9 @@ export const getPostsByHashtag = async (req, res) => {
       {
         $match: {
           content: hashtagRegex,
-          ...(cursor && mongoose.isValidObjectId(cursor) ? { _id: { $lt: new mongoose.Types.ObjectId(cursor) } } : {}),
+          ...(cursor && mongoose.isValidObjectId(cursor)
+            ? { _id: { $lt: new mongoose.Types.ObjectId(cursor) } }
+            : {}),
         },
       },
       {
@@ -416,7 +461,12 @@ export const getPostsByHashtag = async (req, res) => {
                     user: {
                       $arrayElemAt: [
                         "$commentUsers",
-                        { $indexOfArray: ["$commentUsers._id", "$$comment.user"] },
+                        {
+                          $indexOfArray: [
+                            "$commentUsers._id",
+                            "$$comment.user",
+                          ],
+                        },
                       ],
                     },
                   },
