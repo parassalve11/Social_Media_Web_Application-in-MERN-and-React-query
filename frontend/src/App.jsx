@@ -13,6 +13,9 @@ import FollowingPage from "./pages/FollowingPage.jsx";
 import HashtagPosts from "./components/HashtagPosts.jsx";
 import SearchPage from "./pages/SearchPage.jsx";
 import PostPage from "./pages/PostPage.jsx";
+import ConfromEmailPage from "./pages/forget-password/ConfromEmailPage.jsx";
+import VerifyPage from "./pages/forget-password/VerifyPage.jsx";
+import ResetPasswordPage from "./pages/forget-password/ResetPasswordPage.jsx";
 
 
 
@@ -47,6 +50,19 @@ function App() {
             element={!authUser ? <SignInPage /> : <Navigate to={"/"} />}
           />
 
+          <Route
+          path="/forget-password/check"
+          element={!authUser ? <ConfromEmailPage /> : <Navigate to={"/"} />}
+          />
+          <Route
+          path="/verify/:email"
+          element={!authUser ? <VerifyPage /> : <Navigate to={"/"} />}
+          />
+         
+          <Route
+          path="/forget-password/:email/reset"
+          element={!authUser ? <ResetPasswordPage /> : <Navigate to={"/"} />}
+          />
          
              <Route
             path="/"

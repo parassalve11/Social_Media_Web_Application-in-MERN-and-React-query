@@ -180,6 +180,10 @@ export const getCurrentUser = async (req, res) => {
 
 export const emailExist = async (req, res) => {
   try {
+
+     if (!req.body || !req.body.email) {
+      return res.status(400).json({ message: "Email is required for password reset." });
+    }
     const { email } = req.body;
 
     if (!email) {
@@ -248,6 +252,46 @@ export const verifyUser = async(req,res) =>{
     res.json({message:"User verifed sucessfully for reset password."})
   } catch (error) {
     console.log("Error in verifyUser controller",error.message);
+    res.status(500).json({message:"Server Error"})
+  }
+};
+
+
+
+export const resetPassword = async(req,res) =>{
+  try {
+    const{email,password} = req.body;
+
+    if(!email || !password){
+      res.status(400).json({message:"all fileds are required"});
+    };
+
+    const user = await User.findOne({email});
+
+    if(!user){
+      res.status(404).json({message:"User not Found"})
+    }
+
+    if(password.length < 6){
+      res.status(401).json({message:"Password should be at least of 6 char"})
+    };
+
+    const isSamePassword = await bcrypt.compare(password,user.password);
+
+    if(isSamePassword){
+      res.status(403).json({message:"Its Privious password"})
+    }
+    const hashPassword = await bcrypt.hash(password,10);
+
+
+    await User.findOneAndUpdate({email},{
+      password:hashPassword
+    });
+  
+
+    res.status(201).json({message:"Password changed successffuly"})
+  } catch (error) {
+    console.log("Error in resetPassword controller",error.message);
     res.status(500).json({message:"Server Error"})
   }
 }

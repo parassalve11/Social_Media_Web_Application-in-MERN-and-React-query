@@ -15,6 +15,7 @@ import { useToast } from "../UI/ToastManager";
 import { jwtDecode } from "jwt-decode";
 import { GoogleLogin } from "@react-oauth/google";
 import useFormValidation from "../../hooks/useFormValidation";
+import {Link} from "react-router-dom"
 
 const SignInForm = () => {
  
@@ -157,6 +158,9 @@ const SignInForm = () => {
             )}
           </div>
         </div>
+        <Link to={'/forget-password/check'} className="flex items-center mt-auto">
+          <p className="text-sm font-semibold text-blue-600 hover:cursor-pointer">Forget Password ?</p>
+        </Link>
         <div className="space-y-3 mt-5">
           <Button
             type="submit"
