@@ -17,9 +17,9 @@ import PostAction from "./PostAction";
 import { Link, useParams } from "react-router-dom";
 import Dialog from "../UI/Dialog";
 import DropdownComponent from "../UI/DropdownComponent";
-import UserTooltip from "../userTooltip";
+import UserTooltip from "../UserTooltip.jsx"
 import EditPostDialog from "./EditPostDialog";
-import PostEditor from "./PostEditor";
+
 
 export default function Post({ post }) {
   const { hashtag } = useParams();
