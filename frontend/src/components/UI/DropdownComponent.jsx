@@ -1,22 +1,27 @@
 import React, { useState, useEffect, useRef } from "react";
 import gsap from "gsap";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 const DropdownComponent = ({
   triggerElement,
   options = [],
   onSelect,
-  variant = "default", // Variants: 'default', 'minimal', 'button', 'card', 'stacked'
+  variant = "default",
   className = "",
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
   const triggerRef = useRef(null);
   const optionsRef = useRef(null);
+  const navigate = useNavigate();
   const [dropdownPosition, setDropdownPosition] = useState({ horizontal: "right", vertical: "bottom" });
+  const [leftOffset, setLeftOffset] = useState(8); // Store leftOffset in state to use in style
 
   // Toggle dropdown visibility with trigger animation
-  const handleToggle = () => {
+  const handleToggle = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log("Toggling dropdown, isOpen:", !isOpen); // Debug log
     if (triggerRef.current) {
       gsap.fromTo(
         triggerRef.current,
@@ -32,36 +37,48 @@ const DropdownComponent = ({
               backgroundColor: variant === "button" ? "#fff1ad" : "transparent",
               duration: 0.2,
             });
-            setIsOpen(!isOpen);
+            setIsOpen((prev) => !prev);
           },
         }
       );
     } else {
-      setIsOpen(!isOpen);
+      setIsOpen((prev) => !prev);
     }
   };
 
   // Handle option selection or navigation
-  const handleSelect = (value, href) => {
-    if (onSelect) onSelect(value);
-    if (href) {
-      window.location.href = href; // Replace with useNavigate for SPA
-    }
-    setIsOpen(false);
+  const handleSelect = (value, href, element) => {
+    console.log("Selected:", { value, href }); // Debug log
+    gsap.to(element, {
+      scale: 0.95,
+      duration: 0.1,
+      onComplete: () => {
+        gsap.to(element, { scale: 1, duration: 0.1 });
+        if (onSelect) onSelect(value);
+        if (href) navigate(href);
+        setIsOpen(false);
+      },
+    });
   };
 
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target) &&
+        triggerRef.current &&
+        !triggerRef.current.contains(event.target)
+      ) {
+        console.log("Closing dropdown due to outside click"); // Debug log
         setIsOpen(false);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("touchstart", handleClickOutside);
+
+    const eventType = window.innerWidth < 640 ? "touchstart" : "mousedown";
+    document.addEventListener(eventType, handleClickOutside);
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("touchstart", handleClickOutside);
+      document.removeEventListener(eventType, handleClickOutside);
     };
   }, []);
 
@@ -73,23 +90,24 @@ const DropdownComponent = ({
         const dropdownRect = optionsRef.current.getBoundingClientRect();
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
-        const isMobile = viewportWidth < 640;
+        const isMobile = viewportWidth < 640; // Define isMobile here
 
         // Set dropdown width based on screen size
         const dropdownWidth = isMobile
-          ? Math.min(180, viewportWidth - 16) // Compact width for mobile
-          : Math.min(240, viewportWidth - 16); // Standard width for larger screens
+          ? Math.min(180, viewportWidth - 16)
+          : Math.min(240, viewportWidth - 16);
 
         // Determine horizontal position
-        let horizontal = "right";
+        let horizontal = isMobile ? "center" : "right"; // Center on mobile for better visibility
         const spaceRight = viewportWidth - triggerRect.right;
         const spaceLeft = triggerRect.left;
 
-        if (spaceRight < dropdownWidth && spaceLeft >= dropdownWidth) {
-          horizontal = "left";
-        } else if (spaceRight < dropdownWidth && spaceLeft < dropdownWidth) {
-          // Center if there's not enough space on either side
-          horizontal = "center";
+        if (!isMobile) {
+          if (spaceRight < dropdownWidth && spaceLeft >= dropdownWidth) {
+            horizontal = "left";
+          } else if (spaceRight < dropdownWidth && spaceLeft < dropdownWidth) {
+            horizontal = "center";
+          }
         }
 
         // Determine vertical position
@@ -98,9 +116,19 @@ const DropdownComponent = ({
           vertical = "top";
         }
 
-        setDropdownPosition({ horizontal, vertical });
+        // Calculate left offset for positioning
+        let _leftOffset = 8; // Prefix with _ to comply with linter
+        if (horizontal === "center") {
+          _leftOffset = `calc(50% - ${dropdownWidth / 2}px)`;
+        } else if (horizontal === "left") {
+          _leftOffset = "auto";
+        } else if (isMobile) {
+          _leftOffset = Math.max(8, triggerRect.left - (dropdownWidth - triggerRect.width) / 2);
+        }
 
-        // Update dropdown width
+        setDropdownPosition({ horizontal, vertical });
+        setLeftOffset(_leftOffset); // Store leftOffset for use in style
+
         if (optionsRef.current) {
           optionsRef.current.style.width = `${dropdownWidth}px`;
           optionsRef.current.style.minWidth = isMobile ? "150px" : "200px";
@@ -118,34 +146,18 @@ const DropdownComponent = ({
     };
   }, [isOpen]);
 
-  // GSAP animation for dropdown (optimized for mobile)
+  // GSAP animation for dropdown
   useEffect(() => {
     if (optionsRef.current) {
       const isMobile = window.innerWidth < 640;
-      const tl = gsap.timeline({ paused: true });
-      if (isOpen) {
-        tl.fromTo(
-          optionsRef.current,
-          { y: dropdownPosition.vertical === "top" ? 10 : -10, opacity: 0, scale: isMobile ? 1 : 0.98 },
-          {
-            y: 0,
-            opacity: 1,
-            scale: 1,
-            duration: isMobile ? 0.15 : 0.3,
-            ease: isMobile ? "power2.out" : "power2.out",
-            display: "block",
-          }
-        ).play();
-      } else {
-        tl.to(optionsRef.current, {
-          y: dropdownPosition.vertical === "top" ? 10 : -10,
-          opacity: 0,
-          scale: isMobile ? 1 : 0.98,
-          duration: 0.15,
-          ease: "power2.in",
-          display: "none",
-        }).play();
-      }
+      gsap.to(optionsRef.current, {
+        y: isOpen ? 0 : (dropdownPosition.vertical === "top" ? 10 : -10),
+        opacity: isOpen ? 1 : 0,
+        scale: isMobile ? 1 : isOpen ? 1 : 0.98,
+        duration: isMobile ? 0.15 : 0.3,
+        ease: isOpen ? "power2.out" : "power2.in",
+        display: isOpen ? "block" : "none",
+      });
     }
   }, [isOpen, dropdownPosition]);
 
@@ -166,18 +178,22 @@ const DropdownComponent = ({
   };
 
   return (
-    <div className={`relative inline-block z-[1000] ${className}`} ref={dropdownRef}>
+    <div className={`relative inline-block z-[2000] ${className}`} ref={dropdownRef}>
       {/* Trigger Element with Animation */}
       <div
         ref={triggerRef}
         onClick={handleToggle}
-        onTouchStart={handleToggle}
         className={`cursor-pointer ${variant === "default" ? "" : getVariantStyles()}`}
       >
         {React.cloneElement(triggerElement, {
           className: `${triggerElement.props.className || ""} ${
             variant === "button" ? "px-4 py-2" : ""
           }`,
+          onClick: (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleToggle(e);
+          },
         })}
       </div>
 
@@ -189,45 +205,34 @@ const DropdownComponent = ({
           display: isOpen ? "block" : "none",
           top: dropdownPosition.vertical === "top" ? "auto" : "100%",
           bottom: dropdownPosition.vertical === "top" ? "100%" : "auto",
-          left:
-            dropdownPosition.horizontal === "center"
-              ? `calc(50% - ${optionsRef.current?.offsetWidth / 2 || 90}px)`
-              : dropdownPosition.horizontal === "left"
+          left: leftOffset,
+          right:
+            dropdownPosition.horizontal === "center" || dropdownPosition.horizontal === "right"
               ? "auto"
               : 8,
-          right:
-            dropdownPosition.horizontal === "center"
-              ? "auto"
-              : dropdownPosition.horizontal === "left"
-              ? 8
-              : "auto",
           transform: dropdownPosition.horizontal === "center" ? "translateX(-50%)" : "none",
-          zIndex: 1000,
+          zIndex: 2000,
         }}
       >
         {options.map((option, index) => (
-          <Link
+          <div
             key={index}
-            to={option.href || "#"}
             onClick={(e) => {
               e.preventDefault();
-              handleSelect(option.value, option.href);
-            }}
-            onTouchStart={(e) => {
-              e.preventDefault();
-              handleSelect(option.value, option.href);
+              e.stopPropagation();
+              handleSelect(option.value, option.href, e.currentTarget);
             }}
             className={`flex items-center gap-2 px-3 py-2.5 cursor-pointer transition-colors duration-200 no-underline ${
               variant === "minimal"
-                ? "text-gray-700 hover:bg-[#fff1ad]/20"
+                ? "text-gray-700 hover:bg-[#fff1ad]/20 active:bg-[#fff1ad]/30"
                 : variant === "card" || variant === "stacked"
-                ? "text-gray-700 hover:bg-[#fff1ad]/30 rounded-md"
-                : "text-gray-700 hover:bg-[#fff1ad]/40"
-            } text-sm sm:text-xs`} // Smaller text on mobile
+                ? "text-gray-700 hover:bg-[#fff1ad]/30 rounded-md active:bg-[#fff1ad]/40"
+                : "text-gray-700 hover:bg-[#fff1ad]/40 active:bg-[#fff1ad]/50"
+            } text-sm sm:text-xs`}
           >
             {option.icon && <span className="text-base sm:text-sm">{option.icon}</span>}
             {option.label}
-          </Link>
+          </div>
         ))}
       </div>
     </div>

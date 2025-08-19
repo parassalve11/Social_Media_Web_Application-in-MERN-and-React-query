@@ -182,9 +182,9 @@ export default function Post({ post }) {
               <Link to={`/profile/${post.author?.username}`}>
                 <h3 className="text-lg flex items-center gap-2 font-semibold hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">
                   {post.author?.name || "Unknown User"}
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <div className="text-sm text-gray-500 dark:text-gray-400 hidden md:block">
                 @{post.author?.username || ""}
-              </p>
+              </div>
                 </h3>
               </Link>
               
@@ -194,7 +194,7 @@ export default function Post({ post }) {
             </div>
           </div>
         {isOwner && (
-          <div style={{ position: "relative", zIndex: 1000 }}>
+        
             <DropdownComponent
               triggerElement={
                 <PostAction
@@ -208,7 +208,7 @@ export default function Post({ post }) {
               onSelect={handleOptionSelect}
               variant="default"
             />
-          </div>
+          
         )}
       </div>
 
