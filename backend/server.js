@@ -10,8 +10,8 @@ import notificationRoutes from "./routers/notification.route.js";
 import followRoutes from "./routers/follow.route.js";
 import userRoutes from "./routers/user.route.js";
 import { sendOtpToConsumers } from "./lib/mail.js";
-import { redisClient } from "./lib/redis.js";
 import path from 'path'
+import chatRoutes from "./routers/chat.route.js";
 
 dotenv.config();
 
@@ -33,6 +33,7 @@ app.use('/api/v1/posts',postRoutes);
 app.use('/api/v1/notifications',notificationRoutes);
 app.use('/api/v1/follows',followRoutes);
 app.use('/api/v1/users',userRoutes);
+app.use('/api/v1/chats',chatRoutes)
 
 if(process.env.NODE_ENV === "production"){
     app.use(express.static(path.join(__dirname,"/frontend/dist")));

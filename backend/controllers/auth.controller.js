@@ -53,7 +53,7 @@ export const signUp = async (req, res) => {
 
     await user.save();
 
-    res.status(201).json({ message: "User signUp successffuly" });
+    res.status(201).json({ message: "User signUp successffuly",user,token });
   } catch (error) {
     console.log("Error in Signup Controller", error.message);
     res.status(500).json({ message: "Server Error " });
@@ -94,7 +94,7 @@ export const signIn = async (req, res) => {
       secure: process.env.NODE_ENV === "production",
     });
 
-    res.status(201).json({ message: "User Signup successffuly" });
+    res.status(201).json({ message: "User Signup successffuly",token});
   } catch (error) {
     console.log("Error in SignIn Controller", error.message);
     res.status(500).json({ message: "Server Error " });
