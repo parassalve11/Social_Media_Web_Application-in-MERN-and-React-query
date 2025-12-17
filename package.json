@@ -27,8 +27,10 @@
     "lucide-react": "^0.513.0",
     "mongodb": "^6.16.0",
     "mongoose": "^8.15.1",
+    "multer": "^2.0.2",
     "nodemailer": "^7.0.5",
     "nodemon": "^3.1.10",
-    "redis": "^5.8.0"
+    "redis": "^5.8.0",
+    "socket.io": "^4.8.1"
   }
 }

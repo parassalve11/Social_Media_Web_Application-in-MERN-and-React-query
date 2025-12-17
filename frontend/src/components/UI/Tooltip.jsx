@@ -1,203 +1,205 @@
-import React, { useRef, useEffect } from 'react';
-import { gsap } from 'gsap';
+import React, {
+  useRef,
+  useEffect,
+  useState,
+  cloneElement,
+} from "react";
+import { createPortal } from "react-dom";
+import { gsap } from "gsap";
+
+const PLACEMENTS = ["top", "bottom", "left", "right"];
 
 const Tooltip = ({
   children,
   content,
-  className = '',
-  delay = 0.2,
-  minShowTime = 0.1,
-}) => {
-  const tooltipRef = useRef(null);
-  const triggerRef = useRef(null);
-  const timeoutRef = useRef(null);
-  const isHoveringTooltip = useRef(false);
-  const isHoveringTrigger = useRef(false);
 
-  useEffect(() => {
+  // Control
+  open,
+  defaultOpen = false,
+  onOpenChange,
+
+  // Positioning
+  placement = "top",
+  offset = 8,
+  followCursor = false,
+
+  // Timing
+  delayOpen = 200,
+  delayClose = 150,
+
+  // UI
+  variant = "dark",
+  arrow = true,
+  arrowSize = 8,
+
+  // Behavior
+  portal = true,
+  animation = "gsap", // "css"
+  className = "",
+}) => {
+  const triggerRef = useRef(null);
+  const tooltipRef = useRef(null);
+  const arrowRef = useRef(null);
+  const timeoutRef = useRef(null);
+
+  const isControlled = open !== undefined;
+  const [internalOpen, setInternalOpen] = useState(defaultOpen);
+  const isOpen = isControlled ? open : internalOpen;
+
+  const setOpenState = (value) => {
+    if (!isControlled) setInternalOpen(value);
+    onOpenChange?.(value);
+  };
+
+  /* -------------------------------------------------- */
+  /* POSITIONING */
+  /* -------------------------------------------------- */
+
+  const calculatePosition = (x, y) => {
     const trigger = triggerRef.current;
     const tooltip = tooltipRef.current;
+    if (!trigger || !tooltip) return;
 
-    const calculatePosition = () => {
-      const triggerRect = trigger.getBoundingClientRect();
-      const tooltipRect = tooltip.getBoundingClientRect();
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
-      const isMobile = viewportWidth < 640; // sm breakpoint
-      const isMedium = viewportWidth < 1024; // md breakpoint
+    const tr = trigger.getBoundingClientRect();
+    const tt = tooltip.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
 
-      // Adjust required space based on screen size
-      const tooltipWidth = isMobile ? 180 : isMedium ? 240 : 256; // Approximate widths based on w-48, w-60, w-64
-      const tooltipHeight = tooltipRect.height;
-
-      // Determine best position based on available space
-      const spaceAbove = triggerRect.top;
-      const spaceBelow = viewportHeight - triggerRect.bottom;
-      const spaceLeft = triggerRect.left;
-      const spaceRight = viewportWidth - triggerRect.right;
-
-      const spaces = [
-        { pos: 'top', space: spaceAbove, required: tooltipHeight + 8 },
-        { pos: 'bottom', space: spaceBelow, required: tooltipHeight + 8 },
-        { pos: 'left', space: spaceLeft, required: tooltipWidth + 8 },
-        { pos: 'right', space: spaceRight, required: tooltipWidth + 8 },
-      ];
-
-      // Find the position with the most available space
-      const bestPosition = spaces.reduce((best, current) => {
-        if (current.space >= current.required && current.space > best.space) {
-          return current;
-        }
-        return best;
-      }, { pos: 'top', space: spaceAbove, required: tooltipHeight + 8 });
-
-      // Set position classes based on best position
-      let positionClasses = '';
-      let arrowClasses = '';
-      switch (bestPosition.pos) {
-        case 'top':
-          positionClasses = 'bottom-full mb-2 left-1/2 -translate-x-1/2';
-          arrowClasses = 'bottom-[-4px] left-1/2 -translate-x-1/2';
-          break;
-        case 'bottom':
-          positionClasses = 'top-full mt-2 left-1/2 -translate-x-1/2';
-          arrowClasses = 'top-[-4px] left-1/2 -translate-x-1/2';
-          break;
-        case 'left':
-          positionClasses = 'right-full mr-2 top-1/2 -translate-y-1/2';
-          arrowClasses = 'right-[-4px] top-1/2 -translate-y-1/2';
-          break;
-        case 'right':
-          positionClasses = 'left-full ml-2 top-1/2 -translate-y-1/2';
-          arrowClasses = 'left-[-4px] top-1/2 -translate-y-1/2';
-          break;
-        default:
-          positionClasses = 'bottom-full mb-2 left-1/2 -translate-x-1/2';
-          arrowClasses = 'bottom-[-4px] left-1/2 -translate-x-1/2';
-      }
-
-      return { positionClasses, arrowClasses };
+    const positions = {
+      top: {
+        top: tr.top - tt.height - offset,
+        left: tr.left + tr.width / 2 - tt.width / 2,
+      },
+      bottom: {
+        top: tr.bottom + offset,
+        left: tr.left + tr.width / 2 - tt.width / 2,
+      },
+      left: {
+        top: tr.top + tr.height / 2 - tt.height / 2,
+        left: tr.left - tt.width - offset,
+      },
+      right: {
+        top: tr.top + tr.height / 2 - tt.height / 2,
+        left: tr.right + offset,
+      },
     };
 
-    const showTooltip = () => {
-      isHoveringTrigger.current = true;
-
-      // Clear any existing hide timeout
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
+    let best = placement;
+    for (const p of PLACEMENTS) {
+      const pos = positions[p];
+      if (
+        pos.top >= 0 &&
+        pos.left >= 0 &&
+        pos.top + tt.height <= vh &&
+        pos.left + tt.width <= vw
+      ) {
+        best = p;
+        break;
       }
+    }
 
-      // Update position classes dynamically
-      const { positionClasses, arrowClasses } = calculatePosition();
-      tooltip.className = `
-        absolute z-[1010] px-3 py-2 text-sm text-white bg-gray-800 rounded-lg shadow-lg
-        opacity-0 scale-90 transform pointer-events-auto
-        ${positionClasses}
+    const finalPos = followCursor && x && y
+      ? { top: y + 12, left: x + 12 }
+      : positions[best];
+
+    tooltip.style.top = `${finalPos.top}px`;
+    tooltip.style.left = `${finalPos.left}px`;
+
+    tooltip.dataset.placement = best;
+  };
+
+  /* -------------------------------------------------- */
+  /* OPEN / CLOSE */
+  /* -------------------------------------------------- */
+
+  const show = (e) => {
+    clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      setOpenState(true);
+      requestAnimationFrame(() =>
+        calculatePosition(e?.clientX, e?.clientY)
+      );
+    }, delayOpen);
+  };
+
+  const hide = () => {
+    clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(
+      () => setOpenState(false),
+      delayClose
+    );
+  };
+
+  /* -------------------------------------------------- */
+  /* EFFECTS */
+  /* -------------------------------------------------- */
+
+  useEffect(() => {
+    const tooltip = tooltipRef.current;
+    if (!tooltip) return;
+
+    if (isOpen) {
+      if (animation === "gsap") {
+        gsap.fromTo(
+          tooltip,
+          { opacity: 0, scale: 0.9 },
+          { opacity: 1, scale: 1, duration: 0.2 }
+        );
+      }
+    }
+  }, [isOpen, animation]);
+
+  /* -------------------------------------------------- */
+  /* EVENTS */
+  /* -------------------------------------------------- */
+
+  const triggerProps = {
+    ref: triggerRef,
+    onMouseEnter: show,
+    onMouseLeave: hide,
+    onFocus: show,
+    onBlur: hide,
+    onMouseMove: followCursor ? calculatePosition : undefined,
+    "aria-describedby": "tooltip",
+  };
+
+  /* -------------------------------------------------- */
+  /* RENDER */
+  /* -------------------------------------------------- */
+
+  const tooltipNode = isOpen && (
+    <div
+      ref={tooltipRef}
+      role="tooltip"
+      className={`
+        fixed z-[9999] pointer-events-none
+        px-3 py-2 rounded-md text-sm
+        transition-all
+        ${variant === "dark" && "bg-gray-900 text-white"}
+        ${variant === "light" && "bg-white text-black shadow-lg"}
         ${className}
-      `;
-      const arrow = tooltip.querySelector('.tooltip-arrow');
-      if (arrow) {
-        arrow.className = `absolute w-2 h-2 bg-gray-800 rotate-45 ${arrowClasses}`;
-      }
+      `}
+    >
+      {content}
 
-      gsap.to(tooltip, {
-        opacity: 1,
-        scale: 1,
-        duration: 0.2,
-        ease: 'power2.out',
-        delay,
-      });
-    };
-
-    const hideTooltip = () => {
-      if (!isHoveringTrigger.current && !isHoveringTooltip.current) {
-        gsap.to(tooltip, {
-          opacity: 0,
-          scale: 0.9,
-          duration: 0.15,
-          ease: 'power2.in',
-          onComplete: () => {
-            tooltip.style.opacity = '0';
-          },
-        });
-      }
-    };
-
-    const handleTriggerEnter = () => {
-      showTooltip();
-    };
-
-    const handleTriggerLeave = () => {
-      isHoveringTrigger.current = false;
-      timeoutRef.current = setTimeout(hideTooltip, minShowTime * 1000);
-    };
-
-    const handleTooltipEnter = () => {
-      isHoveringTooltip.current = true;
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-
-    const handleTooltipLeave = () => {
-      isHoveringTooltip.current = false;
-      timeoutRef.current = setTimeout(hideTooltip, minShowTime * 1000);
-    };
-
-    const handleScroll = () => {
-      isHoveringTrigger.current = false;
-      isHoveringTooltip.current = false;
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-      hideTooltip();
-    };
-
-    // Event listeners
-    trigger.addEventListener('mouseenter', handleTriggerEnter);
-    trigger.addEventListener('mouseleave', handleTriggerLeave);
-    tooltip.addEventListener('mouseenter', handleTooltipEnter);
-    tooltip.addEventListener('mouseleave', handleTooltipLeave);
-    window.addEventListener('scroll', handleScroll);
-
-    // Touch support for mobile
-    const handleTouchStart = (e) => {
-      e.preventDefault();
-      if (!isHoveringTrigger.current) {
-        showTooltip();
-        timeoutRef.current = setTimeout(hideTooltip, minShowTime * 1000);
-      }
-    };
-
-    trigger.addEventListener('touchstart', handleTouchStart);
-
-    // Cleanup
-    return () => {
-      trigger.removeEventListener('mouseenter', handleTriggerEnter);
-      trigger.removeEventListener('mouseleave', handleTriggerLeave);
-      trigger.removeEventListener('touchstart', handleTouchStart);
-      tooltip.removeEventListener('mouseenter', handleTooltipEnter);
-      tooltip.removeEventListener('mouseleave', handleTooltipLeave);
-      window.removeEventListener('scroll', handleScroll);
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, [delay, minShowTime, className]);
+      {arrow && (
+        <div
+          ref={arrowRef}
+          className="absolute rotate-45"
+          style={{
+            width: arrowSize,
+            height: arrowSize,
+          }}
+        />
+      )}
+    </div>
+  );
 
   return (
-    <div className="relative inline-block">
-      <div ref={triggerRef} className="inline-block">
-        {children}
-      </div>
-      <div
-        ref={tooltipRef}
-        className="absolute z-[1010] px-3 py-2 text-sm text-white bg-gray-800 rounded-lg shadow-lg opacity-0 scale-90 transform pointer-events-auto"
-      >
-        {content}
-        <div className="tooltip-arrow absolute w-2 h-2 bg-gray-800 rotate-45" />
-      </div>
-    </div>
+    <>
+      {cloneElement(children, triggerProps)}
+      {portal ? createPortal(tooltipNode, document.body) : tooltipNode}
+    </>
   );
 };
 

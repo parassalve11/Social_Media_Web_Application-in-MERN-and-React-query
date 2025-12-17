@@ -40,7 +40,7 @@ const FollowingFeed = () => {
   }
 
   if (!posts.length && !hasNextPage) {
-    return <div className="text-center py-6 text-gray-500">
+    return <div className="text-center py-6 w-full max-w-4xl text-gray-500">
               <Users2 className="w-8 h-8 sm:w-10 sm:h-10 mx-auto mb-2 opacity-50" />
               <p className="text-sm sm:text-base">Follow Other User to for Posts.</p>
             </div>

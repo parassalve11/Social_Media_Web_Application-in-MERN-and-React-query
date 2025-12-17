@@ -39,6 +39,13 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "https://cdn.pixabay.com/photo/2017/07/18/23/23/user-2517430_1280.png" // Default avatar URL
     },
+    lastSeen:{
+      type:Date
+    },
+    isOnline:{
+      type:Boolean , 
+      default:false
+    },
     bannerImage: {
       type: String,
       default: "https://cdn.pixabay.com/photo/2020/05/21/11/08/banner-5200272_1280.jpg" // Default banner URL

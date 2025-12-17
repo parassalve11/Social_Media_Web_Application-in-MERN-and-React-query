@@ -11,7 +11,10 @@ import followRoutes from "./routers/follow.route.js";
 import userRoutes from "./routers/user.route.js";
 import { sendOtpToConsumers } from "./lib/mail.js";
 import path from 'path'
-import chatRoutes from "./routers/chat.route.js";
+import MessageRoutes from "./routers/message.route.js";
+import StatusRoutes from "./routers/status.route.js";
+import http from 'http'
+import { initializeSocket } from "./socket/socket.js";
 
 dotenv.config();
 
@@ -27,13 +30,26 @@ const __dirname = path.resolve();
 
 app.use(express.json({limit:"5mb"}));
 
+const server = http.createServer(app)
+
+const io = initializeSocket(server);
+
+
+app.use((req,res,next) =>{
+    req.io = io;
+    req.socketUserMap   = io.socketUserMap
+    next()
+})
+
 
 app.use('/api/v1/auth',authRouters);
 app.use('/api/v1/posts',postRoutes);
 app.use('/api/v1/notifications',notificationRoutes);
 app.use('/api/v1/follows',followRoutes);
 app.use('/api/v1/users',userRoutes);
-app.use('/api/v1/chats',chatRoutes)
+app.use('/api/v1/message',MessageRoutes)
+app.use('/api/v1/status',StatusRoutes)
+
 
 if(process.env.NODE_ENV === "production"){
     app.use(express.static(path.join(__dirname,"/frontend/dist")));
@@ -43,7 +59,7 @@ if(process.env.NODE_ENV === "production"){
    });
 }
 
-app.listen(PORT,() =>{
+server.listen(PORT,() =>{
     console.log("Server is Running on ", PORT);
     sendOtpToConsumers();
     connectDB();

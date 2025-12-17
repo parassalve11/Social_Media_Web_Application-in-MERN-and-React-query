@@ -18,11 +18,7 @@ export default function Navbar() {
     }
   };
 
-  const options = [
-    { label: "Profile", value: "profile", icon: <User />, href: "/profile" },
-    { label: "admin", value: "admin", icon: <Lock />, href: "/admin" },
-    { label: "Sign Out", value: "signout", icon: <LogOut /> },
-  ];
+  
 
   const queryClient = useQueryClient();
   const { addToast } = useToast();
@@ -37,6 +33,11 @@ export default function Navbar() {
       });
     },
   });
+  const options = [
+    { label: "Profile", value: "profile", icon: <User />, href: `/profile/${authUser?.username}` },
+    { label: "admin", value: "admin", icon: <Lock />, href: "/admin" },
+    { label: "Sign Out", value: "signout", icon: <LogOut /> },
+  ];
   return (
     <nav className="bg-white shadow-md sticky top-0 z-30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
