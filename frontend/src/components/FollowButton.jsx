@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "../lib/axiosIntance";
 
 
@@ -7,9 +7,7 @@ export default function FollowButton({ userId }) {
   
 
   // Fetch authenticated user data
-  const { data: authUser } = useQuery({
-    queryKey: ["authUser"],
-  });
+ const authUser = queryClient.getQueryData(["authUser"]);
 
   // Mutation for following a user
   const { mutate: followMutation, isPending: isFollowing } = useMutation({

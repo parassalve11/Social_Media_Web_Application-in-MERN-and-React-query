@@ -2,7 +2,7 @@
 
 import { Link } from "react-router-dom";
 import ButtonAnimatedGradient from "../UI/ButtonAnimatedGradient";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import DropdownComponent from "../UI/DropdownComponent";
 import { Lock, LogOut, Menu, User } from "lucide-react";
 import axiosInstance from "../../lib/axiosIntance";
@@ -22,7 +22,7 @@ export default function Navbar() {
 
   const queryClient = useQueryClient();
   const { addToast } = useToast();
-  const { data: authUser } = useQuery({ queryKey: ["authUser"] });
+const authUser = queryClient.getQueryData(["authUser"]);
   const { mutate: Signout } = useMutation({
     mutationFn: () => axiosInstance.post("/auth/signout"),
     onSuccess: () => {

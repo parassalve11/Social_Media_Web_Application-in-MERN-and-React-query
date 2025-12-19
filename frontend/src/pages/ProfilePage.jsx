@@ -10,7 +10,7 @@ import ProfileDetails from "../components/profile/ProfileDetails";
 
 export default function ProfilePage() {
   const { username } = useParams();
-  const { data: authUser } = useQuery({ queryKey: ["authUser"] });
+
   const { addToast } = useToast();
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
@@ -19,39 +19,38 @@ export default function ProfilePage() {
   const [bannerPreview, setBannerPreview] = useState(null);
   const avatarInputRef = useRef(null);
   const bannerInputRef = useRef(null);
-
+  const authUser = queryClient.getQueryData(["authUser"]);
   const { data: userProfile, isLoading: isProfileLoading } = useQuery({
     queryKey: ["profile", username],
     queryFn: async () => await axiosInstance.get(`/users/${username}`),
   });
 
-  const {
-    mutate: updateProfileMutation,
-    isPending: isUpdateProfileLoading,
-  } = useMutation({
-    mutationFn: async (updatedData) => await axiosInstance.put("/users/profile", updatedData),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["profile", username] });
-      queryClient.invalidateQueries({ queryKey: ["authUser"] });
-      addToast("Profile Updated", {
-        type: "success",
-        duration: 3000,
-      });
-      setIsEditing(false);
-      setAvatarPreview(null);
-      setBannerPreview(null);
-    },
-    onError: (error) => {
-      console.log(error.message);
-      addToast("Failed to update Profile", {
-        type: "error",
-        duration: 3000,
-      });
-    },
-  });
+  const { mutate: updateProfileMutation, isPending: isUpdateProfileLoading } =
+    useMutation({
+      mutationFn: async (updatedData) =>
+        await axiosInstance.put("/users/profile", updatedData),
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["profile", username] });
+        queryClient.invalidateQueries({ queryKey: ["authUser"] });
+        addToast("Profile Updated", {
+          type: "success",
+          duration: 3000,
+        });
+        setIsEditing(false);
+        setAvatarPreview(null);
+        setBannerPreview(null);
+      },
+      onError: (error) => {
+        console.log(error.message);
+        addToast("Failed to update Profile", {
+          type: "error",
+          duration: 3000,
+        });
+      },
+    });
 
   const handleUpdateProfile = (e) => {
-    if(e){
+    if (e) {
       e.preventDefault();
     }
     updateProfileMutation(formData);
@@ -129,7 +128,6 @@ export default function ProfilePage() {
     );
   }
 
-
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
       <ProfileHeader
@@ -165,7 +163,9 @@ export default function ProfilePage() {
               className="h-32 w-full bg-cover bg-center rounded-lg"
               style={{
                 backgroundImage: `url(${
-                  bannerPreview || userData.bannerImage || "/banner-placeholder.png"
+                  bannerPreview ||
+                  userData.bannerImage ||
+                  "/banner-placeholder.png"
                 })`,
               }}
             >
@@ -189,7 +189,9 @@ export default function ProfilePage() {
           {/* Avatar Image Section */}
           <div className="relative -mt-16 ml-4">
             <img
-              src={avatarPreview || userData.avatar || "/avatar-placeholder.png"}
+              src={
+                avatarPreview || userData.avatar || "/avatar-placeholder.png"
+              }
               alt="Avatar Preview"
               className="w-24 h-24 rounded-full object-cover border-4 border-white"
             />

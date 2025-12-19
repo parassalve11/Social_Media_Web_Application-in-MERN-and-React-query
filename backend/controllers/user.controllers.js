@@ -1,6 +1,9 @@
 import User from "../models/user.model.js";
 import cloudinary from "../lib/cloudinary.js";
 
+import Conversation from "../models/conversation.model.js";
+import response from "../lib/responeHandler.js";
+
 export const getSuggestions = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -25,9 +28,9 @@ export const getSuggestions = async (req, res) => {
 };
 export const getProfile = async (req, res) => {
   try {
-
-
-    const user = await User.findOne({ username: req.params.username }).select("-password");
+    const user = await User.findOne({ username: req.params.username }).select(
+      "-password"
+    );
 
     if (!user) {
       return res.status(400).json({ message: "User not Found" });
@@ -43,7 +46,7 @@ export const getProfile = async (req, res) => {
 export const updateProfile = async (req, res) => {
   try {
     const allowedFields = [
-    "name",
+      "name",
       "username",
       "avatar",
       "bannerImage",
@@ -69,19 +72,18 @@ export const updateProfile = async (req, res) => {
       updatedData.bannarImg = result.secure_url;
     }
 
-  const user =   await User.findByIdAndUpdate(
+    const user = await User.findByIdAndUpdate(
       req.user._id,
       { $set: updatedData },
       { new: true }
     ).select("-password");
 
-    res.status(200).json(user)
+    res.status(200).json(user);
   } catch (error) {
     console.log("Error in updateProfile controller", error.message);
     res.status(500).json({ message: "Server error" });
   }
 };
-
 
 export const getUserByUsername = async (req, res) => {
   try {
@@ -96,7 +98,6 @@ export const getUserByUsername = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
 
 export const searchUsers = async (req, res) => {
   try {
@@ -121,3 +122,43 @@ export const searchUsers = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+export const getAllUsers = async (req, res) => {
+  try {
+    const loggedUser = req.user._id;
+
+    const users = await User.find({ _id: { $ne: loggedUser } })
+      .select("username avatar lastSeen isOnline bio")
+      .lean();
+
+    const userWithConversation = await Promise.all(
+      users.map(async (user) => {
+        const conversation = await Conversation
+          .findOne({
+            participants: { $all: [loggedUser, user._id] },
+          })
+          .populate({
+            path: "lastMessage",
+            select: "content createdAt sender receiver",
+          })
+          .lean();
+
+        return {
+          ...user,
+          conversation, // will be object or null
+        };
+      })
+    );
+
+    return response(
+      res,
+      200,
+      "users retrieved successfully",
+      userWithConversation
+    );
+  } catch (error) {
+    console.error("Error in getAllUsers controller:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+

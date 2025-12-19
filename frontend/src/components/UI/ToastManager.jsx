@@ -6,11 +6,42 @@ import React, {
   useContext,
 } from "react";
 
-import { bindToastApi } from "./toast";
+
 
 const ToastContext = createContext();
 
 const MAX_TOASTS = 5;
+
+let toastApi = null;
+
+export const toast = {
+  success: (msg, opts) => toastApi?.addToast(msg, { ...opts, type: "success" }),
+  error: (msg, opts) => toastApi?.addToast(msg, { ...opts, type: "error" }),
+  info: (msg, opts) => toastApi?.addToast(msg, { ...opts, type: "info" }),
+  warning: (msg, opts) => toastApi?.addToast(msg, { ...opts, type: "warning" }),
+
+  dismiss: (id) => toastApi?.removeToast(id),
+  clearAll: () => toastApi?.clearAll(),
+
+  promise(promise, messages) {
+    const id = toastApi?.addToast(messages.loading, {
+      type: "info",
+      persistent: true,
+    });
+
+    promise
+      .then(() => toastApi?.updateToast(id, { message: messages.success, type: "success" }))
+      .catch(() => toastApi?.updateToast(id, { message: messages.error, type: "error" }))
+      .finally(() => toastApi?.autoClose(id));
+
+    return promise;
+  },
+};
+
+export const bindToastApi = (api) => {
+  toastApi = api;
+};
+
 
 const ToastManager = ({ children, position = "top-right" }) => {
   const [toasts, setToasts] = useState([]);

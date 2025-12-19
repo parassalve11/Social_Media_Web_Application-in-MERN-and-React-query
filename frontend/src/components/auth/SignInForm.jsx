@@ -17,12 +17,15 @@ import { GoogleLogin } from "@react-oauth/google";
 import useFormValidation from "../../hooks/useFormValidation";
 import {Link} from "react-router-dom"
 
+
 const SignInForm = () => {
  
   
 
   const [showPassword, setShowPassword] = useState(false);
   const[error,setError] = useState("")
+
+
 
 
   const queryClient = useQueryClient();
@@ -40,13 +43,17 @@ const SignInForm = () => {
   const { mutate: signInMutation, isPending } = useMutation({
     mutationFn: async (data) => {
       const res = await axiosInstance.post("/auth/signin", data);
+      console.log(res?.data);
+      
       return res;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       addToast("Signed In successfully!", {
         type: "success",
         duration: 3000,
       });
+      console.log("Onsucess",data);
+      
       queryClient.invalidateQueries({ queryKey: ["authUser"] });
     },
     onError: (error) => {

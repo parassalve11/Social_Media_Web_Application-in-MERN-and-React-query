@@ -46,17 +46,19 @@ function Layout({ children }) {
   ];
 
   // Define routes where the sidebar should be hidden
-  const hideSidebarRoutes = ["/signup", "/signin"];
+  const hideSidebarRoutes = ["/signup", "/signin",'/messages'];
 
   // Check if the current route is one where the sidebar should be hidden
   const shouldHideSidebar = hideSidebarRoutes.includes(location.pathname);
 
   return (
     <div className="min-h-screen bg-white overflow-visible">
-      <Navbar />
+      
       {shouldHideSidebar ? (
         <main className="h-screen">{children}</main>
       ) : (
+        <>
+        <Navbar />
         <SidebarLayout
           menuItems={menuItems}
           logo={<div className="text-2xl font-bold text-blue-600">MyApp</div>}
@@ -90,6 +92,7 @@ function Layout({ children }) {
         >
           <main className="h-screen">{children}</main>
         </SidebarLayout>
+        </>
       )}
     </div>
   );
