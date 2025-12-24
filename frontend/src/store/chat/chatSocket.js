@@ -2,7 +2,6 @@
 import { store } from "../index";
 import { getSocket } from "../../services/chat.service";
 import {
-  addMessage,
   updateMessageStatus,
   deleteMessageLocal,
   updateReactions,
@@ -22,10 +21,6 @@ export const initializeChatSocket = () => {
   socket.off("message_error");
   socket.off("user_typing");
   socket.off("user_status");
-
-  socket.on("send_message", (message) => {
-    store.dispatch(addMessage(message));
-  });
 
   socket.on("message_status_update", ({ messageId, messageStatus }) => {
     store.dispatch(
@@ -48,8 +43,10 @@ export const initializeChatSocket = () => {
   });
 
   socket.on("user_status", (payload) => {
-    store.dispatch(setUserStatus(payload));
-  });
+  console.log("🟢 USER STATUS SOCKET PAYLOAD:", payload);
+  store.dispatch(setUserStatus(payload));
+});
+
 
   socket.on("message_error", (err) => {
     console.error("socket message error", err);

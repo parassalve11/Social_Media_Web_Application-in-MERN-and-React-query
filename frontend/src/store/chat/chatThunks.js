@@ -64,8 +64,7 @@ export const sendMessage = createAsyncThunk(
     try {
       const { data } = await axiosInstance.post(
         "/message/send-message",
-        formData,
-        { headers: { "Content-Type": "multipart/form-data" } }
+        formData
       );
 
       const realMessage = data?.data || data;

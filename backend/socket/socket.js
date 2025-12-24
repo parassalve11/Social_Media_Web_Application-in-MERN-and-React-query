@@ -1,6 +1,6 @@
 import { Server } from "socket.io";
-import User from "../models/user.model.js"; 
-import Message from "../models/message.model.js"; 
+import User from "../models/user.model.js";
+import Message from "../models/message.model.js";
 
 //Map to find user is online or not - > userId , socketId
 
@@ -29,18 +29,25 @@ export const initializeSocket = (server) => {
 
     try {
       socket.on("user_connected", async (connectionUserId) => {
-        userId = connectionUserId; // taking userId from frontend throught props
+        if (!connectionUserId) {
+          console.warn("❌ user_connected called without userId");
+          return;
+        }
+
+        userId = connectionUserId;
         onlineUsers.set(userId, socket.id);
         socket.join(userId);
-
-        //mark user in db online and show them in frontend while an emmit
 
         await User.findByIdAndUpdate(userId, {
           isOnline: true,
           lastSeen: new Date(),
         });
-        //notify all user is online and show them in frontend
-        socket.emit("user_status", { userId, isOnline: true });
+
+        io.emit("user_status", {
+          userId,
+          isOnline: true,
+          lastSeen: null,
+        });
       });
     } catch (error) {
       console.error(
@@ -70,11 +77,10 @@ export const initializeSocket = (server) => {
         if (senderSocketId) {
           io.to(senderSocketId).emit("send_message", message);
         }
-        
+
         if (receiverSocketId) {
           io.to(receiverSocketId).emit("recevie_message", message);
         }
-        
       } catch (error) {
         console.error(
           "Error while sending message to reciver in socket",
@@ -165,54 +171,81 @@ export const initializeSocket = (server) => {
         isTyping: false,
       });
     });
-    //add reaction on time to both user in conversation
-   // add reaction to both users
-socket.on("add_reaction", async ({ messageId, emoji, userId: reactionUserId }) => {
+
+    //delete action 
+    socket.on("delete_message", async ({ messageId, conversationId }) => {
   try {
-    const message = await Message.findById(messageId);
-    if (!message) return;
+    await Message.findByIdAndDelete(messageId);
 
-    const existingIndex = message.reactions.findIndex(
-      (r) => r.user.toString() === reactionUserId
-    );
+    const users = io.socketUserMap;
 
-    if (existingIndex > -1) {
-      const existing = message.reactions[existingIndex];
-
-      if (existing.emoji === emoji) {
-        // remove reaction if same clicked twice
-        message.reactions.splice(existingIndex, 1);
-      } else {
-        // change emoji
-        message.reactions[existingIndex].emoji = emoji;
-      }
-    } else {
-      // add new reaction
-      message.reactions.push({ user: reactionUserId, emoji });
-    }
-
-    await message.save();
-
-    const populatedMessage = await Message.findById(message._id)
-      .populate("sender", "username profilePhoto")
-      .populate("receiver", "username profilePhoto")
-      .populate("reactions.user", "username profilePhoto");
-
-    const senderSocket = onlineUsers.get(populatedMessage.sender._id.toString());
-    const receiverSocket = onlineUsers.get(populatedMessage.receiver._id.toString());
-
-    const payload = {
-      messageId: populatedMessage._id,
-      reactions: populatedMessage.reactions
-    };
-
-    if (senderSocket) io.to(senderSocket).emit("reaction_update", payload);
-    if (receiverSocket) io.to(receiverSocket).emit("reaction_update", payload);
-
-  } catch (error) {
-    console.error("Error handling Reactions in Socket", error.message);
+    users.forEach((socketId) => {
+      io.to(socketId).emit("mesage_delected", {
+        deletetMessageId: messageId,
+        conversationId,
+      });
+    });
+  } catch (err) {
+    console.error("Delete message socket error", err.message);
   }
 });
+
+    //add reaction on time to both user in conversation
+    // add reaction to both users
+    socket.on(
+      "add_reaction",
+      async ({ messageId, emoji, userId: reactionUserId }) => {
+        try {
+          const message = await Message.findById(messageId);
+          if (!message) return;
+
+          const existingIndex = message.reactions.findIndex(
+            (r) => r.user.toString() === reactionUserId
+          );
+
+          if (existingIndex > -1) {
+            const existing = message.reactions[existingIndex];
+
+            if (existing.emoji === emoji) {
+              // remove reaction if same clicked twice
+              message.reactions.splice(existingIndex, 1);
+            } else {
+              // change emoji
+              message.reactions[existingIndex].emoji = emoji;
+            }
+          } else {
+            // add new reaction
+            message.reactions.push({ user: reactionUserId, emoji });
+          }
+
+          await message.save();
+
+          const populatedMessage = await Message.findById(message._id)
+            .populate("sender", "username profilePhoto")
+            .populate("receiver", "username profilePhoto")
+            .populate("reactions.user", "username profilePhoto");
+
+          const senderSocket = onlineUsers.get(
+            populatedMessage.sender._id.toString()
+          );
+          const receiverSocket = onlineUsers.get(
+            populatedMessage.receiver._id.toString()
+          );
+
+          const payload = {
+            messageId: populatedMessage._id,
+            reactions: populatedMessage.reactions,
+          };
+
+          if (senderSocket)
+            io.to(senderSocket).emit("reaction_update", payload);
+          if (receiverSocket)
+            io.to(receiverSocket).emit("reaction_update", payload);
+        } catch (error) {
+          console.error("Error handling Reactions in Socket", error.message);
+        }
+      }
+    );
 
     const handleDisconnect = async () => {
       try {
@@ -234,7 +267,7 @@ socket.on("add_reaction", async ({ messageId, emoji, userId: reactionUserId }) =
           lastSeen: new Date(),
         });
 
-        socket.emit("user_status", {
+        io.emit("user_status", {
           userId,
           isOnline: false,
           lastSeen: new Date(),

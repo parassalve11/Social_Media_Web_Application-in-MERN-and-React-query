@@ -101,7 +101,7 @@ export const {
   setTypingUser,
   setUserStatus,
   resetChat,
-  clearMessages
+  clearMessages,
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

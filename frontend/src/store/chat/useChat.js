@@ -33,7 +33,6 @@ export const useChat = () => {
     error: chat.error,
     typingUsers: chat.typingUsers,
     onlineUsers: chat.onlineUsers,
-    
 
     /* ---------- ACTIONS ---------- */
     setCurrentUser: (user) => dispatch(setCurrentUser(user)),
@@ -43,20 +42,16 @@ export const useChat = () => {
 
     fetchConversations: () => dispatch(fetchConversations()),
 
-    fetchMessages: (conversationId) =>
-      dispatch(fetchMessages(conversationId)),
+    fetchMessages: (conversationId) => dispatch(fetchMessages(conversationId)),
 
-    sendMessage: (formData) =>
-      dispatch(sendMessage(formData)),
+    sendMessage: (formData) => dispatch(sendMessage(formData)),
 
-    deleteMessage: (messageId) =>
-      dispatch(deleteMessage(messageId)),
+    deleteMessage: (messageId) => dispatch(deleteMessage(messageId)),
 
-    markMessageAsRead: () =>
-      dispatch(markMessagesAsRead()),
+    markMessageAsRead: () => dispatch(markMessagesAsRead()),
 
     cleanUp: () => dispatch(resetChat()),
-    clearMessages:() => dispatch(clearMessages()),
+    clearMessages: () => dispatch(clearMessages()),
 
     /* ---------- SOCKET HELPERS ---------- */
     addReaction: (messageId, emoji) => {
@@ -78,6 +73,11 @@ export const useChat = () => {
         conversationId: chat.currentConversation,
         receiverId,
       });
+    },
+    deleteMessageSocket: (messageId) => {
+      const socket = getSocket();
+      const conversationId = chat.currentConversation;
+      socket?.emit("delete_message", { messageId, conversationId });
     },
 
     stopTyping: (receiverId) => {
@@ -102,7 +102,5 @@ export const useChat = () => {
     getUserLastSeen: (userId) => {
       return chat.onlineUsers?.[userId]?.lastSeen || null;
     },
-
-    
   };
 };

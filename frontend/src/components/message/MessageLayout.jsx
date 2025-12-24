@@ -32,7 +32,7 @@ export default function MessagesLayout({ children }) {
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "tween" }}
-              className={`w-full md:w-2/5 h-full ${isMobile && "pb-16"}`}
+              className={`w-full md:w-xl h-full ${isMobile && "pb-16"}`}
             >
               {children}
             </Motion.div>

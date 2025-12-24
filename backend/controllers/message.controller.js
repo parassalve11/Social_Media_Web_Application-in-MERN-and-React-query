@@ -1,7 +1,7 @@
 import { uploadToClouduinary } from "../lib/cloudinary.js";
-import Conversation from "../models/conversation.model.js"; 
-import Message from "../models/message.model.js"; 
-import response from "../lib/responeHandler.js"; 
+import Conversation from "../models/conversation.model.js";
+import Message from "../models/message.model.js";
+import response from "../lib/responeHandler.js";
 
 export const sendMessage = async (req, res) => {
   try {
@@ -34,9 +34,9 @@ export const sendMessage = async (req, res) => {
 
       imageOrVideoUrl = uploadFile?.secure_url;
 
-      if (file.mimetype.startswith("image")) {
+      if (file.mimetype && file.mimetype.startsWith("image/")) {
         contentType = "image";
-      } else if (file.mimetype.startswith("video")) {
+      } else if (file.mimetype && file.mimetype.startsWith("video/")) {
         contentType = "video";
       } else {
         return response(res, 400, "File type is Unsupported");
@@ -88,7 +88,7 @@ export const sendMessage = async (req, res) => {
 
     return response(res, 201, "Message sent successfully", message);
   } catch (error) {
-    console.log("Error on getAllUser controller", error.message);
+    console.log("Error on sendMessage controller", error.message);
     return response(res, 500, "Internal server Error");
   }
 };
@@ -227,10 +227,12 @@ export const deleteMessage = async (req, res) => {
 
     //emit sockets
 
-    if(req.io && req.socketUserMap){
-      const receiverSocketId = req.socketUserMap.get(message.receiver._id.toString());
-      if(receiverSocketId){
-        req.io.to(receiverSocketId).emit("message_deleted",messageId)
+    if (req.io && req.socketUserMap) {
+      const receiverSocketId = req.socketUserMap.get(
+        message.receiver._id.toString()
+      );
+      if (receiverSocketId) {
+        req.io.to(receiverSocketId).emit("message_deleted", messageId);
       }
     }
 

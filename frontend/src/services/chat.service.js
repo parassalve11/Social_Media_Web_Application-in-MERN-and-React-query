@@ -7,7 +7,9 @@ export const initializeSocket = () => {
   if (socket) return socket;
 
   const state = store.getState();
-  const user = state.user;
+  const user = state.user?.user; // ✅ correct nesting
+
+
 
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -20,10 +22,18 @@ export const initializeSocket = () => {
 
   //connection
 
-  socket.on("connect", () => {
-    console.log("Socket is connected on", socket.id);
-    socket.emit("conneted_user", user._id);
-  });
+ socket.on("connect", () => {
+  console.log("Socket is connected on", socket.id);
+
+  // const state = store.getState();
+  // const user = state.user?.user;
+
+  if (user?._id) {
+    socket.emit("user_connected", user._id);
+  } else {
+    console.warn("⚠️ User not ready, socket connected without userId");
+  }
+});
 
   //checking errors
 

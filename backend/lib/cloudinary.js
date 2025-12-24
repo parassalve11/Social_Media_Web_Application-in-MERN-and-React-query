@@ -2,7 +2,7 @@
 import {v2 as cloudinary} from 'cloudinary';
 import dotenv from 'dotenv';
 import multer from 'multer';
-
+import * as fs from 'fs'
 
 dotenv.config();
 
@@ -16,7 +16,7 @@ cloudinary.config({
 
 export const uploadToClouduinary = (file) =>{
     const options = {
-        resource_type:file.mimetype.startsWith('video') ? "video" : "image"
+        resource_type:file.mimetype.startsWith('video/') ? "video" : "image"
     };
 
     return new Promise((resovle,reject ) =>{
