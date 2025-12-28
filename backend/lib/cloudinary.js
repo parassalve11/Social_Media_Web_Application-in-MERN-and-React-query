@@ -33,7 +33,7 @@ export const uploadToClouduinary = (file) =>{
 };
 
 
-export const multerMiddleware = multer({dest:'uploads/'}).single('media')
+export const multerMiddleware = multer({ dest: "uploads/" }).array("media", 10);
 
 
 

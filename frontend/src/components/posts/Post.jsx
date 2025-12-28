@@ -173,39 +173,41 @@ export default function Post({ post }) {
       match.startsWith("#")
         ? `<a href="/hashtag/${match.slice(
             1
-          )}" class="text-blue-600 font-bold underline cursor-pointer">${match}</a>`
+          )}" class="text-blue-500 hover:text-blue-600 font-medium underline decoration-2 underline-offset-4 cursor-pointer transition-colors duration-200">${match}</a>`
         : `<a href="/profile/${match.slice(
             1
-          )}" class="text-teal-600 font-bold underline cursor-pointer">${match}</a>`
+          )}" class="text-gray-500 hover:text-gray-600 font-medium underline decoration-2 underline-offset-4 cursor-pointer transition-colors duration-200">${match}</a>`
     );
   };
 
   return (
-    <article className="bg-white rounded-xl shadow-md border border-gray-200 mb-6 p-6 mx-auto max-w-2xl">
+    <article className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-4 mx-auto max-w-md sm:max-w-lg transition-all duration-200 hover:shadow-md">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
+      <div className="flex items-start justify-between p-4">
+        <div className="flex items-start gap-3 flex-1 min-w-0">
           <UserTooltip user={post?.author} delay={0.2} minShowTime={1}>
             <Link to={`/profile/${post.author?.username}`}>
               <img
                 src={post.author?.avatar || "/placeholder.png"}
                 alt={post.author?.name || "User"}
-                className="w-14 h-14 rounded-full border-2 border-gray-200 object-cover hover:scale-105 transition-transform duration-200"
+                className="w-10 h-10 rounded-full object-cover ring-2 ring-white shadow-md hover:scale-105 transition-transform duration-200"
                 loading="lazy"
               />
             </Link>
           </UserTooltip>
-          <div>
+          <div className="min-w-0 flex-1">
             <Link to={`/profile/${post.author?.username}`}>
-              <h3 className="text-lg flex items-center gap-2 font-semibold hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">
+              <h3 className="text-sm font-semibold text-gray-900 truncate hover:text-blue-600 transition-colors duration-200">
                 {post.author?.name || "Unknown User"}
-                <div className="text-sm text-gray-500 dark:text-gray-400 hidden md:block">
-                  @{post.author?.username || ""}
-                </div>
               </h3>
             </Link>
-
-            <time className="text-xs text-gray-400 dark:text-gray-500">
+            <Link
+              to={`/profile/${post.author?.username}`}
+              className="block text-xs text-gray-500 hover:text-gray-600 transition-colors duration-200"
+            >
+              @{post.author?.username || ""}
+            </Link>
+            <time className="block text-xs text-gray-400 mt-1">
               {formatDistanceToNowStrict(new Date(post.createdAt))} ago
             </time>
           </div>
@@ -214,13 +216,13 @@ export default function Post({ post }) {
           <DropdownComponent
             triggerElement={
               <PostAction
-                icon={<MoreHorizontal size={20} className="text-gray-500" />}
+                icon={<MoreHorizontal size={18} className="text-gray-500" />}
                 text=""
-                className="p-2 rounded-full hover:bg-gray-100"
+                className="p-2 rounded-full hover:bg-gray-100 transition-colors duration-200"
               />
             }
             options={options}
-            className="shadow-lg rounded-md text-black"
+            className="shadow-lg rounded-xl text-gray-900"
             onSelect={handleOptionSelect}
             variant="default"
           />
@@ -228,18 +230,20 @@ export default function Post({ post }) {
       </div>
 
       {/* Content */}
-      <Link to={`/post/${post._id}`}>
-        <p
-          className="text-gray-700 md:text-base text-sm mb-4 break-words leading-relaxed min-h-[2rem]"
-          dangerouslySetInnerHTML={{ __html: highlightContent(post.content) }}
-        />
+      <Link to={`/post/${post._id}`} className="block">
+        <div className="px-4 pb-4">
+          <p
+            className="text-gray-800 text-sm leading-6 mb-3 break-words"
+            dangerouslySetInnerHTML={{ __html: highlightContent(post.content) }}
+          />
+        </div>
 
         {post.image && (
-          <div className="relative w-full max-w-lg mx-auto mb-4">
+          <div className="relative overflow-hidden rounded-b-2xl">
             <img
               src={post.image}
               alt="Post Image"
-              className="w-full h-auto max-h-80 rounded-lg object-cover"
+              className="w-full aspect-[1.2] object-cover transition-transform duration-300 hover:scale-105"
               loading="lazy"
             />
           </div>
@@ -247,124 +251,133 @@ export default function Post({ post }) {
       </Link>
 
       {/* Actions */}
-      <div className="flex justify-between items-center border-t pt-3 mb-3 z-50">
+      <div className="flex justify-between items-center px-4 py-3 border-t border-gray-100">
         <PostAction
           icon={
             <ThumbsUp
-              size={20}
-              className={`transition-colors duration-200 ${
-                isLiked ? "text-blue-600 fill-blue-600" : "text-gray-500"
+              size={18}
+              className={`transition-all duration-200 ${
+                isLiked ? "text-red-500 fill-red-500 scale-110" : "text-gray-500"
               }`}
             />
           }
-          text={`Like ${post.likes?.length || 0}`}
+          text={post.likes?.length ? `${post.likes.length}` : ""}
           onClick={handleLikePost}
-          className={`hover:bg-blue-50 rounded-md px-3 py-2 transition-colors duration-200 pointer-events-auto ${
-            isLiked ? "text-blue-600 font-semibold" : ""
+          className={`group rounded-full px-3 py-2 transition-all duration-200 ${
+            isLiked
+              ? "text-red-500 font-semibold"
+              : "hover:bg-red-50 hover:text-red-500"
           }`}
         />
         <PostAction
           icon={
             <MessageCircle
-              size={20}
-              className={`text-gray-500 transition-colors duration-200 ${
-                showComment ? "text-blue-600" : ""
+              size={18}
+              className={`transition-colors duration-200 ${
+                showComment ? "text-blue-500 fill-blue-500" : "text-gray-500"
               }`}
             />
           }
-          text={`${comments.length}`}
+          text={comments.length ? `${comments.length}` : ""}
           onClick={() => setShowComment(!showComment)}
-          className="hover:bg-blue-50 rounded-md px-3 py-2 transition-colors duration-200 pointer-events-auto"
+          className="rounded-full px-3 py-2 hover:bg-blue-50 hover:text-blue-500 transition-all duration-200"
         />
         <PostAction
           icon={
             <Bookmark
-              size={20}
-              className={`transition-colors duration-200 ${
-                isBookmarked ? "text-blue-600 fill-blue-600" : "text-gray-500"
+              size={18}
+              className={`transition-all duration-200 ${
+                isBookmarked ? "text-purple-500 fill-purple-500 scale-110" : "text-gray-500"
               }`}
             />
           }
-          text="Bookmark"
+          text=""
           onClick={handleBookmarkPost}
-          className={`hover:bg-blue-50 rounded-md px-3 py-2 transition-colors duration-200 pointer-events-auto ${
-            isBookmarked ? "text-blue-600 font-semibold" : ""
+          className={`rounded-full px-3 py-2 transition-all duration-200 ${
+            isBookmarked
+              ? "text-purple-500 font-semibold"
+              : "hover:bg-purple-50 hover:text-purple-500"
           }`}
         />
         <PostAction
-          icon={<Share size={20} className="text-gray-500" />}
-          text="Share"
-          className="hover:bg-blue-50 rounded-md px-3 py-2 transition-colors duration-200 pointer-events-auto"
+          icon={<Share size={18} className="text-gray-500" />}
+          text=""
+          className="rounded-full px-3 py-2 hover:bg-gray-50 hover:text-gray-600 transition-all duration-200"
         />
       </div>
 
       {/* Comments */}
-      {showComment && (
-        <div
-          className={`transition-all duration-300 ease-in-out ${
-            showComment ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
-          } overflow-hidden`}
-        >
-          <div className="max-h-80 overflow-y-auto space-y-3 mb-4">
-            {comments.map((comment) => (
-              <div
-                key={comment._id}
-                className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200"
-              >
-                <img
-                  src={comment.user?.avatar || "/placeholder.png"}
-                  alt={comment.user?.name || "User"}
-                  className="w-10 h-10 rounded-full border border-gray-200 object-cover"
-                  loading="lazy"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm font-semibold">
-                      {comment.user?.name || "Unknown"}
-                    </span>
-                    <time className="text-xs">
-                      {formatDistanceToNowStrict(new Date(comment.createdAt))}
-                    </time>
-                  </div>
-                  <p className="text-sm break-words">{comment.content}</p>
+      <div
+        className={`overflow-hidden transition-all duration-300 ease-out ${
+          showComment ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+        }`}
+      >
+        <div className="max-h-64 overflow-y-auto px-4 pb-4 space-y-3">
+          {comments.map((comment) => (
+            <div
+              key={comment._id}
+              className="flex items-start gap-3 p-3 bg-gray-50/50 rounded-xl hover:bg-gray-100 transition-colors duration-200"
+            >
+              <img
+                src={comment.user?.avatar || "/placeholder.png"}
+                alt={comment.user?.name || "User"}
+                className="w-8 h-8 rounded-full object-cover ring-1 ring-white shadow-sm flex-shrink-0 mt-0.5"
+                loading="lazy"
+              />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-sm font-medium text-gray-900 truncate">
+                    {comment.user?.name || "Unknown"}
+                  </span>
+                  <time className="text-xs text-gray-400">
+                    {formatDistanceToNowStrict(new Date(comment.createdAt))}
+                  </time>
                 </div>
+                <p className="text-sm text-gray-800 leading-relaxed">
+                  {comment.content}
+                </p>
               </div>
-            ))}
-          </div>
-          <form onSubmit={handleAddComment} className="flex items-center gap-2">
+            </div>
+          ))}
+        </div>
+        {showComment && (
+          <form onSubmit={handleAddComment} className="flex items-center gap-2 px-4 pb-4 bg-gray-50 rounded-b-2xl">
             <input
               type="text"
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
-              placeholder="Write a comment..."
-              className="flex-1 p-3 rounded-full bg-gray-100 border border-gray-200 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-all duration-200"
+              placeholder="Add a comment..."
+              className="flex-1 p-3 rounded-full bg-white border border-gray-200 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
             />
-            <PostAction
-              icon={<Send size={18} className="text-blue-600" />}
-              text=""
-              onClick={handleAddComment}
-              isLoading={isCommenting}
-              isDisabled={!newComment.trim()}
-              className="p-3 rounded-full hover:bg-blue-50"
-            />
+            <button
+              type="submit"
+              disabled={!newComment.trim() || isCommenting}
+              className={`p-3 rounded-full transition-all duration-200 ${
+                newComment.trim()
+                  ? "bg-blue-500 text-white hover:bg-blue-600 shadow-sm"
+                  : "text-gray-400 cursor-not-allowed"
+              }`}
+            >
+              <Send size={18} />
+            </button>
           </form>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Delete Dialog */}
       <Dialog
         isOpen={showDeleteDialog}
         onClose={() => setShowDeleteDialog(false)}
         headline="Delete Post?"
-        description="Are you sure you want to delete this post? This action cannot be undone."
+        description="This can't be undone and it will be removed from your profile, any edits, and actions will be gone."
         actionText="Delete"
         variant="destructive"
         isLoading={isDeletingPost}
         actionIcon={<Trash2 size={18} />}
         onAction={handleDeletePost}
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700"
-        actionButtonClass="bg-red-600 hover:bg-red-700 text-white"
-        cancelButtonClass="bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200"
+        className="bg-white rounded-2xl shadow-2xl border border-gray-200 max-w-sm mx-auto"
+        actionButtonClass="bg-red-600 hover:bg-red-700 text-white rounded-xl px-6 py-3 font-medium"
+        cancelButtonClass="bg-white hover:bg-gray-50 text-gray-900 rounded-xl px-6 py-3 font-medium border border-gray-200"
       />
       <EditPostDialog
         post={post}

@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Dialog from "../UI/Dialog";
 
 import { Edit2, Image, Save, X } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import axiosInstance from "../../lib/axiosIntance";
 import { useToast } from "../UI/ToastManager";
 
@@ -135,6 +135,21 @@ export default function EditPostDialog({
       reader.readAsDataURL(file);
     });
   };
+
+
+  // const defaultContent = "sdhfjskdfh"
+
+  useEffect(() => {
+  if (!showEditDialog) return;
+
+  const initialContent = post?.content || "";
+
+  setContent(initialContent);
+
+  if (contentEditableRef.current) {
+    contentEditableRef.current.innerText = initialContent;
+  }
+}, [showEditDialog, post?.content]);
 
   return (
    <Dialog isOpen={showEditDialog} onClose={() => setShowEditDialog(false)} 

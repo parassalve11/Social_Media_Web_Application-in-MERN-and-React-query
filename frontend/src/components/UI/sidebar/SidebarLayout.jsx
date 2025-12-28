@@ -1,17 +1,11 @@
+import React from "react";
 import { SidebarProvider, useSidebar } from "./context";
 import { BetterSidebar } from "./index";
 
-const SidebarLayout = ({
-  children,
-  menuItems,
-  logo,
-  footer,
-  className,
-  ...props
-}) => {
+const SidebarLayout = ({ children, menuItems, logo, footer, className, ...props }) => {
   const ContentWithSidebar = ({ children }) => {
-    const { isOpen, width, isMobile } = useSidebar();
-    const marginLeft = isMobile ? 0 : isOpen ? width : 56;
+    const { width, isMobile } = useSidebar();
+    const marginLeft = isMobile ? 0 : width;
 
     return (
       <div className="flex w-screen">
@@ -23,7 +17,7 @@ const SidebarLayout = ({
           {...props}
         />
         <main
-          className="flex-1 p-8 overflow-y-auto bg-white"
+          className="flex-1 p-6 overflow-y-auto bg-white transition-all duration-300"
           style={{ marginLeft: `${marginLeft}px` }}
         >
           {children}

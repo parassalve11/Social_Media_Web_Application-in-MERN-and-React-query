@@ -1,6 +1,6 @@
 import React from 'react';
 import PostEditor from '../components/posts/PostEditor';
-import { useQuery } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Tabs } from '../components/UI/Tabs';
 import RecommendedUsers from '../components/RecommandedUsers'; 
 import ForYouFeed from '../components/posts/ForYouFeed';
@@ -8,7 +8,9 @@ import FollowingFeed from '../components/posts/FollowingFeed';
 import TrendingBar from '../components/TrendingBar';
 
 const HomePage = () => {
-  const { data: authUser } = useQuery({ queryKey: ['authUser'] });
+
+  const queryClient = useQueryClient()
+   const authUser = queryClient.getQueryData(["authUser"]);
 
   const tabs = [
     {

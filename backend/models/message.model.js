@@ -13,7 +13,7 @@ const messageSchema = new Schema({
     required: true,
   },
   content: { type: String },
-  imageOrVideoUrl: { type: String },
+  imageOrVideoUrl: [{ type: String }],
   contentType: { type: String, enum: ["image", "video", "text"] },
   reactions: [
     {

@@ -17,7 +17,7 @@ import ConfromEmailPage from "./pages/forget-password/ConfromEmailPage.jsx";
 import VerifyPage from "./pages/forget-password/VerifyPage.jsx";
 import ResetPasswordPage from "./pages/forget-password/ResetPasswordPage.jsx";
 import { useUser } from "./store/user/useUser.js";
-import SocketInitializer from "./lib/SocketInitializer.jsx";
+
 import MessagePage from "./pages/MessagePage.jsx";
 
 function App() {
@@ -52,7 +52,7 @@ function App() {
 
   return (
     <Layout>
-      <SocketInitializer />
+      
       <Routes>
         <Route
           path="/signup"

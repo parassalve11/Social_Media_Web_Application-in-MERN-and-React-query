@@ -1,3 +1,4 @@
+import { type } from "os";
 import Follow from "../models/follow.model.js";
 import Notification from "../models/notification.model.js";
 import User from "../models/user.model.js";
@@ -52,6 +53,18 @@ export const followUser = async (req, res) => {
 
     await notification.save();
 
+    //Real time socket event
+
+    const followedSocketId = req.socketUserMap.get(userId.toString())
+
+    if(followedSocketId){
+      req.io.to(followedSocketId).emit("follow_event",{
+        followerId,
+        followedId:userId,
+        type:"follow"
+      })
+    }
+
     res.status(200).json({ message: "Succesfully followed User" });
   } catch (error) {
     console.log("Error in followUser Controller", error.message);
@@ -96,6 +109,18 @@ export const unfollowUser = async (req, res) => {
       type: "follow",
       relatedUser: followerId,
     });
+
+    //Real time socket event
+
+    const followedSocketId = req.socketUserMap.get(userId.toString())
+
+    if(followedSocketId){
+      req.io.to(followedSocketId).emit("unfollow_event",{
+        followerId,
+        followedId:userId,
+        type:"unfollow"
+      })
+    }
 
     res.status(200).json({ message: "Successffuly unfollowed User" });
   } catch (error) {

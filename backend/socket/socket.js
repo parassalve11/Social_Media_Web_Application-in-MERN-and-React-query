@@ -247,6 +247,46 @@ export const initializeSocket = (server) => {
       }
     );
 
+
+    //follow user in real-time
+    socket.on("follow_user",async({followerId,followedId}) =>{
+      try {
+        if(!followedId || !followerId) return;
+
+        const followedSocketId = onlineUsers.get(followedId);
+
+        if(followedSocketId){
+          io.to(followedSocketId).emit("follow_event",{
+            followedId,
+            followerId,
+            type:"follow"
+          })
+        }
+      } catch (error) {
+        console.error("Scoket follow error",error.message);
+        
+      }
+    })
+    //unfollow user in real-time
+    socket.on("unfollow_user",async({followerId,followedId}) =>{
+      try {
+        if(!followedId || !followerId) return;
+
+        const followedSocketId = onlineUsers.get(followedId);
+
+        if(followedSocketId){
+          io.to(followedSocketId).emit("unfollow_event",{
+            followedId,
+            followerId,
+            type:"unfollow"
+          })
+        }
+      } catch (error) {
+        console.error("Scoket unfollow error",error.message);
+        
+      }
+    })
+
     const handleDisconnect = async () => {
       try {
         if (!userId) return;
@@ -282,6 +322,9 @@ export const initializeSocket = (server) => {
     //disconnect event
 
     socket.on("disconnect", handleDisconnect);
+
+
+
   });
 
   io.socketUserMap = onlineUsers;

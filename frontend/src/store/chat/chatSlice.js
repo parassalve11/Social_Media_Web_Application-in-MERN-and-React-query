@@ -51,6 +51,14 @@ const chatSlice = createSlice({
         m._id === messageId ? { ...m, messageStatus } : m
       );
     },
+    updateMediaProgress: (state, action) => {
+      const { messageId, index, progress } = action.payload;
+
+      const msg = state.messages.find((m) => m._id === messageId);
+      if (!msg || !msg.uploadProgress) return;
+
+      msg.uploadProgress[index].progress = progress;
+    },
 
     deleteMessageLocal: (state, action) => {
       state.messages = state.messages.filter((m) => m._id !== action.payload);
@@ -100,6 +108,7 @@ export const {
   updateReactions,
   setTypingUser,
   setUserStatus,
+  updateMediaProgress,
   resetChat,
   clearMessages,
 } = chatSlice.actions;

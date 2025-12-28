@@ -68,28 +68,34 @@ System: y-50 flex items-center justify-center z-50 md:hidden">
               )}
               {!isLoading && !error && trendingHashtags?.length > 0 ? (
                 <ul className="space-y-3 max-h-[200px] overflow-y-auto" role="list">
-                  {trendingHashtags.map(({ hashtag, count }) => (
-                    <li key={hashtag} role="listitem">
+                  {trendingHashtags.map(({ item}) => {
+                        const tag =
+    typeof item.hashtag === "string"
+      ? item.hashtag
+      : String(item.hashtag);
+                    return (
+                    <li key={tag } role="listitem">
                       <Link
-                        to={`/hashtag/${hashtag.slice(1)}`}
+                        to={`/hashtag/${tag.slice(1)}`}
                         className={`flex justify-between items-center p-2 rounded-lg transition-all duration-200 text-sm ${
-                          currentHashtag === hashtag.slice(1).toLowerCase()
+                          currentHashtag === tag.slice(1).toLowerCase()
                             ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md"
                             : "text-blue-600 hover:text-blue-800 hover:bg-blue-50"
                         }`}
-                        aria-current={currentHashtag === hashtag.slice(1).toLowerCase() ? "true" : undefined}
+                        aria-current={currentHashtag === tag.slice(1).toLowerCase() ? "true" : undefined}
                         onClick={() => setIsModalOpen(false)}
                       >
                         <span className="flex items-center gap-2 min-w-0">
                           <Hash className="h-4 w-4 shrink-0" />
-                          <span className="truncate" title={hashtag}>
-                            {hashtag}
+                          <span className="truncate" title={item.hashtag}>
+                            {item.hashtag}
                           </span>
                         </span>
-                        <span className="text-xs text-gray-400">{count} posts</span>
+                        <span className="text-xs text-gray-400">{item.count} posts</span>
                       </Link>
                     </li>
-                  ))}
+                  )
+                  })}
                 </ul>
               ) : (
                 <div className="text-center text-gray-500" aria-live="polite">

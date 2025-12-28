@@ -6,48 +6,44 @@ import response from "../lib/responeHandler.js";
 export const sendMessage = async (req, res) => {
   try {
     const { senderId, receiverId, content, messageStatus } = req.body;
-    const file = req.file;
+    const files = req.files; // 👈 MULTIPLE FILES
     const participants = [senderId, receiverId].sort();
 
-    //check if conversation is exits
-    let conversation = await Conversation.findOne({
-      participants: participants,
-    });
-
+    let conversation = await Conversation.findOne({ participants });
     if (!conversation) {
-      conversation = new Conversation({
-        participants: participants,
-      });
-
-      await conversation.save();
+      conversation = await Conversation.create({ participants });
     }
 
-    let imageOrVideoUrl = null;
+    let imageOrVideoUrl = [];
     let contentType = null;
 
-    if (file) {
-      const uploadFile = await uploadToClouduinary(file);
+    /* ---------- MEDIA ---------- */
+    if (files && files.length > 0) {
+      for (const file of files) {
+        const upload = await uploadToClouduinary(file);
+        if (!upload?.secure_url) {
+          return response(res, 400, "File upload failed");
+        }
 
-      if (!uploadFile?.secure_url) {
-        return response(res, 400, "Faild to Uplod file");
+        imageOrVideoUrl.push(upload.secure_url);
+
+        if (file.mimetype.startsWith("image/")) {
+          contentType = "image";
+        } else if (file.mimetype.startsWith("video/")) {
+          contentType = "video";
+        } else {
+          return response(res, 400, "Unsupported file type");
+        }
       }
-
-      imageOrVideoUrl = uploadFile?.secure_url;
-
-      if (file.mimetype && file.mimetype.startsWith("image/")) {
-        contentType = "image";
-      } else if (file.mimetype && file.mimetype.startsWith("video/")) {
-        contentType = "video";
-      } else {
-        return response(res, 400, "File type is Unsupported");
-      }
-    } else if (content?.trim()) {
+    }
+    /* ---------- TEXT ---------- */
+    else if (content?.trim()) {
       contentType = "text";
     } else {
       return response(res, 400, "Message content is required");
     }
 
-    const message = new Message({
+    const message = await Message.create({
       conversation: conversation._id,
       sender: senderId,
       receiver: receiverId,
@@ -57,41 +53,33 @@ export const sendMessage = async (req, res) => {
       messageStatus,
     });
 
-    // await message.populate("sender receiver");
-    await message.save();
-
-    if (message.content) {
-      conversation.lastMessage = message._id;
-    }
-
+    conversation.lastMessage = message._id;
     conversation.unreadCount += 1;
-
     await conversation.save();
 
-    const populatedMessage = await Message.findOne(message?._id)
+    const populatedMessage = await Message.findById(message._id)
       .populate("sender", "username profilePicture")
       .populate("receiver", "username profilePicture");
 
-    //emit sockets
-
+    /* ---------- SOCKET ---------- */
     if (req.io && req.socketUserMap) {
       const senderSocketId = req.socketUserMap.get(senderId);
       const receiverSocketId = req.socketUserMap.get(receiverId);
-      //real time message with socket events
-      if (receiverSocketId || senderSocketId) {
+
+      if (senderSocketId)
         req.io.to(senderSocketId).emit("send_message", populatedMessage);
+
+      if (receiverSocketId)
         req.io.to(receiverSocketId).emit("receive_message", populatedMessage);
-        message.messageStatus = "delivered";
-        await message.save();
-      }
     }
 
-    return response(res, 201, "Message sent successfully", message);
+    return response(res, 201, "Message sent", populatedMessage);
   } catch (error) {
-    console.log("Error on sendMessage controller", error.message);
-    return response(res, 500, "Internal server Error");
+    console.error(error);
+    return response(res, 500, "Internal server error");
   }
 };
+
 
 export const getConversation = async (req, res) => {
   try {

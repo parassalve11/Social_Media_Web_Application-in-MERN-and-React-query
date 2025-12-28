@@ -5,6 +5,7 @@ import { persistReducer, persistStore } from "redux-persist";
 import userReducer from "./user/userSlice";
 import chatReducer from "./chat/chatSlice";
 import messageLayoutReducer from "../store/message/messageLayoutSplice"
+import  followReducer from '../store/follow/followSlice'
 
 // persist configs
 const userPersistConfig = {
@@ -32,6 +33,7 @@ export const store = configureStore({
     user: persistedUserReducer,
     chat: chatReducer,                  // ❌ NOT persisted
     messageLayout: persistedLayoutReducer, // ✅ persisted
+     follow: followReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

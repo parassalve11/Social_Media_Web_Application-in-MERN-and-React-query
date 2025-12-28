@@ -7,15 +7,17 @@ export const SidebarProvider = ({ children }) => {
     if (typeof window === "undefined") return true;
     return localStorage.getItem("sidebarOpen") !== "false";
   });
-  const [width, setWidth] = useState(240);
+
+  const [width, setWidth] = useState(isOpen ? 240 : 56); // full width or icon-only
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
-      const mobile = window.innerWidth < 768; // Tailwind's md breakpoint
+      const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
       if (!mobile && !isOpen && localStorage.getItem("sidebarOpen") !== "false") {
         setIsOpen(true);
+        setWidth(240);
       }
     };
     handleResize();
@@ -23,13 +25,16 @@ export const SidebarProvider = ({ children }) => {
     return () => window.removeEventListener("resize", handleResize);
   }, [isOpen]);
 
+  const toggleSidebar = () => {
+    setIsOpen((prev) => !prev);
+    setWidth((prev) => (prev === 240 ? 56 : 240)); // toggle width
+  };
+
   useEffect(() => {
     if (!isMobile) {
       localStorage.setItem("sidebarOpen", isOpen.toString());
     }
   }, [isOpen, isMobile]);
-
-  const toggleSidebar = () => setIsOpen((prev) => !prev);
 
   return (
     <SidebarContext.Provider value={{ isOpen, toggleSidebar, width, setWidth, isMobile }}>
