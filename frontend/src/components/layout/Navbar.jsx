@@ -8,6 +8,7 @@ import { Lock, LogOut, Menu, User } from "lucide-react";
 import axiosInstance from "../../lib/axiosIntance";
 import AvatarComponent from "../UI/AvatarComponent";
 import { useToast } from "../UI/ToastManager";
+import { useUser } from "../../store/user/useUser";
 
 
 export default function Navbar() {
@@ -22,7 +23,7 @@ export default function Navbar() {
 
   const queryClient = useQueryClient();
   const { addToast } = useToast();
-const authUser = queryClient.getQueryData(["authUser"]);
+const {  user:authUser } = useUser();
   const { mutate: Signout } = useMutation({
     mutationFn: () => axiosInstance.post("/auth/signout"),
     onSuccess: () => {

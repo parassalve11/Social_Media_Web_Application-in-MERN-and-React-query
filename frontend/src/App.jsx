@@ -22,7 +22,7 @@ import MessagePage from "./pages/MessagePage.jsx";
 
 function App() {
   const { setUser } = useUser();
-  const { data: authUser, isLoading } = useQuery({
+  const { data: user, isLoading } = useQuery({
     queryKey: ["authUser"],
     queryFn: async () => {
       try {
@@ -46,81 +46,77 @@ function App() {
 
   if (isLoading) return null;
 
-
-  
-  
-
   return (
     <Layout>
       
       <Routes>
         <Route
           path="/signup"
-          element={!authUser ? <SignUpPage /> : <Navigate to={"/"} />}
+          element={!user ? <SignUpPage /> : <Navigate to={"/"} />}
         />
         <Route
           path="/signin"
-          element={!authUser ? <SignInPage /> : <Navigate to={"/"} />}
+          element={!user ? <SignInPage /> : <Navigate to={"/"} />}
         />
 
         <Route
           path="/forget-password/check"
-          element={!authUser ? <ConfromEmailPage /> : <Navigate to={"/"} />}
+          element={!user ? <ConfromEmailPage /> : <Navigate to={"/"} />}
         />
         <Route
           path="/verify/:email"
-          element={!authUser ? <VerifyPage /> : <Navigate to={"/"} />}
+          element={!user ? <VerifyPage /> : <Navigate to={"/"} />}
         />
 
         <Route
           path="/forget-password/:email/reset"
-          element={!authUser ? <ResetPasswordPage /> : <Navigate to={"/"} />}
+          element={!user ? <ResetPasswordPage /> : <Navigate to={"/"} />}
         />
 
         <Route
           path="/"
-          element={authUser ? <HomePage /> : <Navigate to={"/signin"} />}
+          element={user ? <HomePage /> : <Navigate to={"/signin"} />}
         />
 
         <Route
           path="/notifications"
           element={
-            authUser ? <NotificationPage /> : <Navigate to={"/signin"} />
+            user ? <NotificationPage /> : <Navigate to={"/signin"} />
           }
         />
         <Route
           path="/profile/:username"
-          element={authUser ? <ProfilePage /> : <Navigate to={"/signin"} />}
+          element={user ? <ProfilePage /> : <Navigate to={"/signin"} />}
         />
         <Route
           path="/bookmarks"
-          element={authUser ? <BookmarkPage /> : <Navigate to={"/signin"} />}
+          element={user ? <BookmarkPage /> : <Navigate to={"/signin"} />}
         />
         <Route
           path="/profile/:username/followers"
-          element={authUser ? <FollowersPage /> : <Navigate to={"/signin"} />}
+          element={user ? <FollowersPage /> : <Navigate to={"/signin"} />}
         />
         <Route
           path="/profile/:username/following"
-          element={authUser ? <FollowingPage /> : <Navigate to={"/signin"} />}
+          element={user ? <FollowingPage /> : <Navigate to={"/signin"} />}
         />
 
         <Route
           path="/hashtag/:hashtag"
-          element={authUser ? <HashtagPosts /> : <Navigate to={"/signin"} />}
+          element={user ? <HashtagPosts /> : <Navigate to={"/signin"} />}
         />
         <Route
           path="/search"
-          element={authUser ? <SearchPage /> : <Navigate to={"/signin"} />}
+          element={user ? <SearchPage /> : <Navigate to={"/signin"} />}
         />
 
         <Route
           path="/post/:postId"
-          element={authUser ? <PostPage /> : <Navigate to={"/signin"} />}
+          element={user ? <PostPage /> : <Navigate to={"/signin"} />}
         />
         <Route
           path="/messages"
-          element={authUser ? <MessagePage /> : <Navigate to={"/signin"} />}
+          element={user ? <MessagePage /> : <Navigate to={"/signin"} />}
         />
       </Routes>
     </Layout>

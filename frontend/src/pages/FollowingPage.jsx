@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import axiosInstance from "../lib/axiosIntance"; 
 import { useToast } from "../components/UI/ToastManager"; 
+import FollowButton from "../components/FollowButton";
 
 export default function FollowingPage() {
   const { username } = useParams();
@@ -129,32 +130,7 @@ export default function FollowingPage() {
                 </Link>
               </div>
               {followingUser._id !== authUser?._id && (
-                <button
-                  onClick={() =>
-                    authUser.following?.includes(followingUser._id)
-                      ? unFollowMutation(followingUser._id)
-                      : followMutation(followingUser._id)
-                  }
-                  disabled={isDisabled}
-                  className={`
-                    px-2.5 py-1 sm:px-4 sm:py-1.5 md:px-5 md:py-2 rounded-full font-medium text-xs sm:text-sm md:text-base
-                    transition-all duration-200 ease-in-out min-w-[70px] sm:min-w-[90px] md:min-w-[100px]
-                    ${
-                      isDisabled
-                        ? "opacity-50 cursor-not-allowed bg-gray-300 text-gray-600"
-                        : "hover:shadow-lg hover:scale-105 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                    }
-                    ${
-                      authUser.following?.includes(followingUser._id)
-                        ? "bg-gray-200 text-gray-800 hover:bg-gray-300"
-                        : "bg-blue-600 text-white hover:bg-blue-700"
-                    }
-                  `}
-                  aria-label={getAriaLabel(followingUser)}
-                  aria-busy={isDisabled}
-                >
-                  {getButtonText(followingUser)}
-                </button>
+                <FollowButton userId={followingUser._id} />
               )}
             </li>
           ))}

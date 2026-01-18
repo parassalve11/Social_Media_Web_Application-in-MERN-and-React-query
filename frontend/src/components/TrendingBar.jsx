@@ -1,10 +1,12 @@
+// components/TrendingBar.jsx
 import { useQuery } from "@tanstack/react-query";
 import axiosInstance from "../lib/axiosIntance";
-import { Hash } from "lucide-react";
+import { Hash, TrendingUp, X, Flame } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useSidebar } from "./UI/sidebar/context";
 import { useToast } from "./UI/ToastManager";
-import { useState } from "react";
+import React, { useState } from "react";
+import { motion as Motion , AnimatePresence } from "framer-motion";
 
 const TrendingBar = () => {
   const { addToast } = useToast();
@@ -26,144 +28,259 @@ const TrendingBar = () => {
   });
 
   const currentHashtag = location.pathname.split("/hashtag/")[1]?.toLowerCase();
-
   const toggleModal = () => setIsModalOpen((prev) => !prev);
 
+  // Mobile Modal
   if (isMobile) {
     return (
       <>
-        <button
+        <Motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
           onClick={toggleModal}
-          className="flex items-center justify-center p-3 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
+          className="flex flex-col items-center justify-center p-3 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-200 relative"
           aria-label="View trending hashtags"
         >
-          <Hash className="h-6 w-6" />
-          <span className="text-xs mt-1">Trending</span>
-        </button>
-        {isModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacit
-System: y-50 flex items-center justify-center z-50 md:hidden">
-            <div className="bg-white rounded-lg p-6 w-11/12 max-w-md max-h-[80vh] overflow-y-auto shadow-xl">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-800">Trending Hashtags</h3>
-                <button
-                  onClick={toggleModal}
-                  className="p-2 hover:bg-gray-100 rounded-full"
-                  aria-label="Close trending hashtags modal"
-                >
-                  <svg className="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              {isLoading && (
-                <div className="text-center text-gray-500 animate-pulse" aria-live="polite">
-                  Loading hashtags...
-                </div>
-              )}
-              {error && (
-                <div className="text-center text-red-500" aria-live="assertive">
-                  Error loading hashtags
-                </div>
-              )}
-              {!isLoading && !error && trendingHashtags?.length > 0 ? (
-                <ul className="space-y-3 max-h-[200px] overflow-y-auto" role="list">
-                  {trendingHashtags.map(({ item}) => {
-                        const tag =
-    typeof item.hashtag === "string"
-      ? item.hashtag
-      : String(item.hashtag);
-                    return (
-                    <li key={tag } role="listitem">
-                      <Link
-                        to={`/hashtag/${tag.slice(1)}`}
-                        className={`flex justify-between items-center p-2 rounded-lg transition-all duration-200 text-sm ${
-                          currentHashtag === tag.slice(1).toLowerCase()
-                            ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md"
-                            : "text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                        }`}
-                        aria-current={currentHashtag === tag.slice(1).toLowerCase() ? "true" : undefined}
-                        onClick={() => setIsModalOpen(false)}
-                      >
-                        <span className="flex items-center gap-2 min-w-0">
-                          <Hash className="h-4 w-4 shrink-0" />
-                          <span className="truncate" title={item.hashtag}>
-                            {item.hashtag}
-                          </span>
-                        </span>
-                        <span className="text-xs text-gray-400">{item.count} posts</span>
-                      </Link>
-                    </li>
-                  )
-                  })}
-                </ul>
-              ) : (
-                <div className="text-center text-gray-500" aria-live="polite">
-                  No trending hashtags
-                </div>
-              )}
-            </div>
+          <div className="relative">
+            <TrendingUp className="h-6 w-6" />
+            <Flame size={12} className="absolute -top-1 -right-1 text-orange-500 animate-pulse" />
           </div>
-        )}
+          <span className="text-xs mt-1 font-medium">Trending</span>
+        </Motion.button>
+
+        <AnimatePresence>
+          {isModalOpen && (
+            <Motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+              onClick={toggleModal}
+            >
+              <Motion.div
+                initial={{ scale: 0.9, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.9, y: 20 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white rounded-2xl w-full max-w-md max-h-[80vh] overflow-hidden shadow-2xl"
+              >
+                {/* Modal Header */}
+                <div className="p-5 bg-gradient-to-r from-blue-500 to-purple-600 text-white">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                        <Flame size={24} className="text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold">Trending Now</h3>
+                        <p className="text-sm text-blue-100">Popular hashtags today</p>
+                      </div>
+                    </div>
+                    <Motion.button
+                      whileHover={{ scale: 1.1, rotate: 90 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={toggleModal}
+                      className="p-2 hover:bg-white/20 rounded-full transition-colors"
+                      aria-label="Close"
+                    >
+                      <X size={20} />
+                    </Motion.button>
+                  </div>
+                </div>
+
+                {/* Modal Content */}
+                <div className="p-4 max-h-[60vh] overflow-y-auto">
+                  {isLoading && (
+                    <div className="flex flex-col items-center justify-center py-12">
+                      <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-3" />
+                      <p className="text-gray-500 text-sm">Loading trending hashtags...</p>
+                    </div>
+                  )}
+
+                  {error && (
+                    <div className="text-center py-12">
+                      <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <X size={24} className="text-red-500" />
+                      </div>
+                      <p className="text-red-500 font-medium">Failed to load hashtags</p>
+                    </div>
+                  )}
+
+                  {!isLoading && !error && trendingHashtags?.length > 0 ? (
+                    <div className="space-y-2">
+                      {trendingHashtags.map(({ hashtag, count }, index) => {
+                        const tag = typeof hashtag === "string" ? hashtag : String(hashtag);
+                        const isActive = currentHashtag === tag.slice(1).toLowerCase();
+
+                        return (
+                          <Motion.div
+                            key={tag}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.1 }}
+                          >
+                            <Link
+                              to={`/hashtag/${tag.slice(1)}`}
+                              onClick={toggleModal}
+                              className={`flex items-center justify-between p-4 rounded-xl transition-all duration-200 group ${
+                                isActive
+                                  ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg scale-105"
+                                  : "bg-gray-50 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 hover:shadow-md"
+                              }`}
+                            >
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <div
+                                  className={`flex items-center justify-center w-10 h-10 rounded-lg font-bold ${
+                                    isActive ? "bg-white/20" : "bg-blue-100 text-blue-600"
+                                  }`}
+                                >
+                                  #{index + 1}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <Hash size={16} className={isActive ? "text-white" : "text-gray-600"} />
+                                    <span className={`font-bold truncate ${isActive ? "text-white" : "text-gray-900"}`}>
+                                      {tag.slice(1)}
+                                    </span>
+                                  </div>
+                                  <p className={`text-xs ${isActive ? "text-blue-100" : "text-gray-500"}`}>
+                                    {count.toLocaleString()} {count === 1 ? "post" : "posts"}
+                                  </p>
+                                </div>
+                              </div>
+                              <TrendingUp
+                                size={20}
+                                className={`ml-2 transition-transform group-hover:scale-110 ${
+                                  isActive ? "text-white" : "text-blue-500"
+                                }`}
+                              />
+                            </Link>
+                          </Motion.div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    !isLoading &&
+                    !error && (
+                      <div className="text-center py-12">
+                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                          <Hash size={24} className="text-gray-400" />
+                        </div>
+                        <p className="text-gray-500">No trending hashtags right now</p>
+                      </div>
+                    )
+                  )}
+                </div>
+              </Motion.div>
+            </Motion.div>
+          )}
+        </AnimatePresence>
       </>
     );
   }
 
+  // Desktop Sidebar
   return (
-    <div className="p-4 border-t border-gray-200">
-      <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+    <div className="p-4 border-t border-gray-200 bg-gradient-to-b from-white to-gray-50">
+      <div className="flex items-center justify-between mb-4">
         {isOpen ? (
           <>
-            <Hash className="h-5 w-5 text-blue-600" />
-            Trending Hashtags
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg">
+                <Flame size={18} className="text-white" />
+              </div>
+              <h3 className="text-sm font-bold text-gray-900">Trending Now</h3>
+            </div>
+            <TrendingUp size={16} className="text-blue-600 animate-pulse" />
           </>
         ) : (
-          <Hash className="h-5 w-5 mx-auto text-blue-600 animate-pulse" />
+          <div className="mx-auto p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg">
+            <Flame size={18} className="text-white animate-pulse" />
+          </div>
         )}
-      </h3>
+      </div>
+
       {isLoading && isOpen && (
-        <div className="text-center text-gray-500 animate-pulse" aria-live="polite">
-          Loading hashtags...
+        <div className="flex flex-col items-center justify-center py-8">
+          <div className="w-10 h-10 border-3 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-2" />
+          <p className="text-xs text-gray-500">Loading...</p>
         </div>
       )}
+
       {error && isOpen && (
-        <div className="text-center text-red-500" aria-live="assertive">
-          Error loading hashtags
+        <div className="text-center py-4">
+          <p className="text-sm text-red-500">Failed to load</p>
         </div>
       )}
+
       {!isLoading && !error && trendingHashtags?.length > 0 && isOpen && (
-        <ul className="space-y-2 max-h-[200px] overflow-y-auto" role="list">
-          {trendingHashtags.map(({ hashtag, count }) => (
-            <li key={hashtag} role="listitem">
-              <Link
-                to={`/hashtag/${hashtag.slice(1)}`}
-                className={`flex justify-between items-center p-2 rounded-lg transition-all duration-200 text-sm group ${
-                  currentHashtag === hashtag.slice(1).toLowerCase()
-                    ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md"
-                    : "text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                }`}
-                aria-current={currentHashtag === hashtag.slice(1).toLowerCase() ? "true" : undefined}
+        <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar">
+          {trendingHashtags.map(({ hashtag, count }, index) => {
+            const isActive = currentHashtag === hashtag.slice(1).toLowerCase();
+
+            return (
+              <Motion.div
+                key={hashtag}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                whileHover={{ x: 4 }}
               >
-                <span className="flex items-center gap-2 min-w-0">
-                  <span className="truncate font-bold" title={hashtag}>
-                    {hashtag}
-                  </span>
-                </span>
-                <span className="text-xs text-black group-hover:text-gray-600">
-                  {count} {count === 1 ? "post" : "posts"}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+                <Link
+                  to={`/hashtag/${hashtag.slice(1)}`}
+                  className={`flex items-center justify-between p-3 rounded-xl transition-all duration-200 group ${
+                    isActive
+                      ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
+                      : "bg-white hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 hover:shadow-md border border-gray-100"
+                  }`}
+                >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div
+                      className={`flex items-center justify-center w-8 h-8 rounded-lg text-xs font-bold ${
+                        isActive ? "bg-white/20" : "bg-blue-100 text-blue-600"
+                      }`}
+                    >
+                      #{index + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <Hash size={14} className={isActive ? "text-white" : "text-gray-600"} />
+                        <span
+                          className={`font-semibold truncate text-sm ${
+                            isActive ? "text-white" : "text-gray-900"
+                          }`}
+                        >
+                          {hashtag.slice(1)}
+                        </span>
+                      </div>
+                      <p className={`text-xs ${isActive ? "text-blue-100" : "text-gray-500"}`}>
+                        {count.toLocaleString()} posts
+                      </p>
+                    </div>
+                  </div>
+                  <TrendingUp
+                    size={16}
+                    className={`transition-transform group-hover:scale-110 ${
+                      isActive ? "text-white" : "text-blue-500"
+                    }`}
+                  />
+                </Link>
+              </Motion.div>
+            );
+          })}
+        </div>
       )}
+
       {!isLoading && !error && trendingHashtags?.length === 0 && isOpen && (
-        <div className="text-center text-gray-500 text-sm" aria-live="polite">
-          No trending hashtags
+        <div className="text-center py-8">
+          <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-2">
+            <Hash size={20} className="text-gray-400" />
+          </div>
+          <p className="text-xs text-gray-500">No trending hashtags</p>
         </div>
       )}
     </div>
   );
 };
 
-export default TrendingBar;
+export default React.memo(TrendingBar);

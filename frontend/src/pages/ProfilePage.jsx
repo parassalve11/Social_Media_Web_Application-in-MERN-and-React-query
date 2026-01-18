@@ -7,6 +7,7 @@ import { Loader2, Save, Camera, Pen } from "lucide-react";
 import Dialog from "../components/UI/Dialog";
 import ProfileHeader from "../components/profile/ProfileHeader";
 import ProfileDetails from "../components/profile/ProfileDetails";
+import { useUser } from "../store/user/useUser";
 
 export default function ProfilePage() {
   const { username } = useParams();
@@ -19,7 +20,7 @@ export default function ProfilePage() {
   const [bannerPreview, setBannerPreview] = useState(null);
   const avatarInputRef = useRef(null);
   const bannerInputRef = useRef(null);
-  const authUser = queryClient.getQueryData(["authUser"]);
+ const {user:authUser} = useUser()
   const { data: userProfile, isLoading: isProfileLoading } = useQuery({
     queryKey: ["profile", username],
     queryFn: async () => await axiosInstance.get(`/users/${username}`),

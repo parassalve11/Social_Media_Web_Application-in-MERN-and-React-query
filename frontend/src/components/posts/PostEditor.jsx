@@ -1,15 +1,17 @@
+// components/Post/PostEditor.jsx
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useRef } from "react";
 import axiosInstance from "../../lib/axiosIntance";
 import { useToast } from "../UI/ToastManager";
-import { Image, Loader2, X } from "lucide-react";
-import Button from "../UI/Button";
+import { Image, Loader2, X, Sparkles, Send } from "lucide-react";
+import { motion as Motion, AnimatePresence } from "framer-motion";
 
 export default function PostEditor({ user }) {
   const [content, setContent] = useState("");
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [isEmpty, setIsEmpty] = useState(true);
+  const [isFocused, setIsFocused] = useState(false);
   const contentEditableRef = useRef(null);
 
   const { addToast } = useToast();
@@ -25,14 +27,14 @@ export default function PostEditor({ user }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["for-you"] });
       queryClient.invalidateQueries({ queryKey: ["following"] });
-      addToast("Post created successfully", {
+      addToast("✨ Post created successfully", {
         type: "success",
         duration: 3000,
       });
       resetForm();
     },
     onError: (error) => {
-      addToast("Failed to create post", {
+      addToast("❌ Failed to create post", {
         type: "error",
         duration: 3000,
       });
@@ -42,20 +44,19 @@ export default function PostEditor({ user }) {
 
   const highlightContent = (text) => {
     if (!text) return "";
-    // Escape HTML to prevent XSS
     const escapedText = text
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#039;");
-    // Highlight hashtags and mentions
+
     return escapedText.replace(
       /(#\w+)|(@\w+)/g,
       (match) =>
         match.startsWith("#")
-           ? `<a href="/hashtag/${match.slice(1)}" class="text-blue-600 font-bold underline cursor-pointer ">${match}</a>`
-        : `<a href="/profile/${match.slice(1)}" class="text-teal-600 font-bold underline cursor-pointer">${match}</a>`
+          ? `<span class="text-blue-600 font-bold">${match}</span>`
+          : `<span class="text-purple-600 font-bold">${match}</span>`
     );
   };
 
@@ -64,7 +65,7 @@ export default function PostEditor({ user }) {
     setContent(text);
     const content = contentEditableRef.current?.innerText;
     setIsEmpty(!content?.trim());
-    // Restore cursor position after re-rendering
+
     const range = document.createRange();
     const sel = window.getSelection();
     e.currentTarget.innerHTML = highlightContent(text);
@@ -109,13 +110,12 @@ export default function PostEditor({ user }) {
     setContent("");
     setImage(null);
     setImagePreview(null);
+    setIsEmpty(true);
+    setIsFocused(false);
     if (contentEditableRef.current) {
       contentEditableRef.current.innerHTML = "";
     }
   };
-
-  
-  
 
   const readFileAsDataURL = (file) => {
     return new Promise((resolve, reject) => {
@@ -126,73 +126,137 @@ export default function PostEditor({ user }) {
     });
   };
 
+  const isPostDisabled = content.trim() === "" && !image;
+
   return (
-    <div className="bg-[var(--theme-background)] rounded-lg shadow mb-4 p-4">
-      <div className="flex space-x-3">
-        <img
-          src={user.avatar || "/avatar.png"}
-          alt={user.name}
-          className="size-12 rounded-full"
-        />
-       <div className="relative w-full max-w-sm lg:max-w-xl">
-      {isEmpty && (
-        <div className="absolute left-3 top-3 text-gray-400 pointer-events-none select-none">
-          What's on your mind?
+    <Motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-white rounded-2xl shadow-md border border-gray-200 mb-6 overflow-hidden hover:shadow-lg transition-shadow duration-300"
+    >
+      {/* Header */}
+      <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 border-b border-gray-200">
+        <div className="flex items-center gap-2">
+          <Sparkles size={18} className="text-blue-600" />
+          <h3 className="font-semibold text-gray-900">Create a post</h3>
         </div>
-      )}
-      <div
-        ref={contentEditableRef}
-        contentEditable
-        onInput={handleInput}
-        className="w-full p-3 rounded-lg bg-[var(--theme-background)] hover:bg-[var(--color-gray-100)] focus:bg-[var(--color-gray-100)] focus:outline-none min-h-[100px] text-gray-700 transition-colors duration-200"
-        role="textbox"
-        aria-multiline="true"
-      />
-    </div>
       </div>
-      {imagePreview && (
-        <div className="mt-4 relative max-w-md mx-auto">
-          <img
-            src={imagePreview}
-            alt="Selected"
-            className="w-full h-auto max-h-64 object-contain rounded-lg"
+
+      <div className="p-5">
+        <div className="flex gap-4">
+          {/* Avatar */}
+          <Motion.img
+            whileHover={{ scale: 1.05 }}
+            src={user.avatar || "/avatar.png"}
+            alt={user.name}
+            className="w-12 h-12 rounded-full object-cover ring-2 ring-blue-200 shadow-sm flex-shrink-0"
           />
-          <button
-            onClick={removeImage}
-            className="absolute top-2 right-2 bg-gray-800 text-white rounded-full p-1 hover:bg-gray-700 transition-colors"
-            aria-label="Remove image"
+
+          {/* Content Editor */}
+          <div className="flex-1">
+            <div className="relative">
+              <AnimatePresence>
+                {isEmpty && !isFocused && (
+                  <Motion.div
+                    initial={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute left-0 top-0 text-gray-400 pointer-events-none select-none text-base"
+                  >
+                    What's on your mind, {user.name?.split(" ")[0]}?
+                  </Motion.div>
+                )}
+              </AnimatePresence>
+
+              <div
+                ref={contentEditableRef}
+                contentEditable
+                onInput={handleInput}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+                className={`w-full p-0 bg-transparent focus:outline-none min-h-[100px] text-gray-900 text-base leading-relaxed transition-all duration-200 ${
+                  isFocused ? "placeholder-transparent" : ""
+                }`}
+                role="textbox"
+                aria-multiline="true"
+                aria-label="Post content"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Image Preview */}
+        <AnimatePresence>
+          {imagePreview && (
+            <Motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mt-4 relative rounded-xl overflow-hidden"
+            >
+              <img
+                src={imagePreview}
+                alt="Preview"
+                className="w-full h-auto max-h-96 object-cover rounded-xl"
+              />
+              <Motion.button
+                whileHover={{ scale: 1.1, rotate: 90 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={removeImage}
+                className="absolute top-3 right-3 bg-gray-900/80 backdrop-blur-sm text-white rounded-full p-2 hover:bg-gray-900 transition-all shadow-lg"
+                aria-label="Remove image"
+              >
+                <X size={18} />
+              </Motion.button>
+            </Motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Actions Bar */}
+        <div className="flex justify-between items-center mt-5 pt-4 border-t border-gray-100">
+          <div className="flex gap-2">
+            <label className="cursor-pointer">
+              <Motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-xl transition-all duration-200 font-medium"
+              >
+                <Image size={20} />
+                <span className="text-sm">Photo</span>
+              </Motion.div>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageChange}
+              />
+            </label>
+          </div>
+
+          <Motion.button
+            whileHover={{ scale: isPostDisabled ? 1 : 1.05 }}
+            whileTap={{ scale: isPostDisabled ? 1 : 0.95 }}
+            disabled={isPostDisabled || isPending}
+            onClick={handlePostCreation}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold transition-all duration-200 shadow-md ${
+              isPostDisabled || isPending
+                ? "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
+                : "bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl"
+            }`}
           >
-            <X size={16} />
-          </button>
+            {isPending ? (
+              <>
+                <Loader2 className="animate-spin" size={18} />
+                <span>Posting...</span>
+              </>
+            ) : (
+              <>
+                <Send size={18} />
+                <span>Post</span>
+              </>
+            )}
+          </Motion.button>
         </div>
-      )}
-      <div className="flex justify-between items-center mt-4">
-        <div className="flex space-x-4">
-          <label className="flex items-center text-[var(--theme-blue)] hover:text-[var(--color-blue-600)] transition-colors duration-200 cursor-pointer">
-            <Image size={20} className="mr-2" />
-            <span>Photo</span>
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleImageChange}
-            />
-          </label>
-        </div>
-        <Button
-          variant="solid"
-          color="primary"
-          size="sm"
-          isLoading={isPending}
-          isDisabled={content.trim() === "" && !image}
-          radius="sm"
-          startContent={<span>🚀</span>}
-          onClick={() => handlePostCreation()}
-          spinner={<Loader2 className="animate-spin" />}
-        >
-          Post
-        </Button>
       </div>
-    </div>
+    </Motion.div>
   );
 }

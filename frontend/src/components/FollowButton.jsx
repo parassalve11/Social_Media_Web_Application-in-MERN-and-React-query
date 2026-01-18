@@ -1,28 +1,36 @@
-import { useFollow } from "../store/follow/useFollow"; 
-import { useUser } from "../store/user/useUser"; 
+// components/FollowButton.jsx
+import React from "react";
+import { useFollow } from "../store/follow/useFollow";
+import { useIsFollowing } from "../store/user/useUser"; // optional fallback
 
-export default function FollowButton({ userId }) {
-  const { user } = useUser(); // authenticated user
+export default function FollowButton({
+  userId,
+  // Controlled props (if provided, follow/unfollow will be handled by parent)
+  isFollowing: isFollowingProp,
+  onFollow,
+  onUnfollow,
+  disabled: disabledProp,
+  className = "",
+}) {
+  // fallback to internal hooks only when controlled props are not provided
+  const { followUser, unfollowUser, loading } = useFollow();
+  const isFollowingInternal = useIsFollowing ? useIsFollowing(userId) : undefined;
 
-  const {
-    followUser,
-    unfollowUser,
-    loading,
-  } = useFollow();
-
-  const isFollower = user?.following?.includes(userId);
-  const isDisabled = loading;
+  const isControlled = typeof isFollowingProp !== "undefined";
+  const isFollowing = isControlled ? isFollowingProp : isFollowingInternal;
+  const isDisabled = typeof disabledProp !== "undefined" ? disabledProp : loading;
 
   const handleClick = () => {
-    if (isFollower) {
-      unfollowUser(userId);
+    if (isControlled) {
+      isFollowing ? onUnfollow?.() : onFollow?.();
     } else {
-      followUser(userId);
+      isFollowing ? unfollowUser(userId) : followUser(userId);
     }
   };
 
   return (
     <button
+      type="button"
       onClick={handleClick}
       disabled={isDisabled}
       className={`
@@ -31,20 +39,20 @@ export default function FollowButton({ userId }) {
         transition-all duration-200 ease-in-out
         min-w-[70px] sm:min-w-[90px] md:min-w-[100px]
         ${
-          isDisabled
+          loading
             ? "opacity-50 cursor-not-allowed bg-gray-300 text-gray-600"
             : "hover:shadow-lg hover:scale-105 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
         }
         ${
-          isFollower
+          isFollowing
             ? "bg-gray-200 text-gray-800 hover:bg-gray-300"
             : "bg-blue-600 text-white hover:bg-blue-700"
         }
-      `}
-      aria-label={isFollower ? "Unfollow user" : "Follow user"}
+      ${className}`}
+      aria-label={isFollowing ? "Unfollow user" : "Follow user"}
       aria-busy={isDisabled}
     >
-      {isFollower ? "Unfollow" : "Follow"}
+      {isFollowing ? "Unfollow" : "Follow"}
     </button>
   );
 }

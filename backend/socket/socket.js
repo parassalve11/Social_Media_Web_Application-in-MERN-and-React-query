@@ -52,7 +52,7 @@ export const initializeSocket = (server) => {
     } catch (error) {
       console.error(
         "Error while establishing user connection in socket",
-        error.message
+        error.message,
       );
     }
 
@@ -84,7 +84,7 @@ export const initializeSocket = (server) => {
       } catch (error) {
         console.error(
           "Error while sending message to reciver in socket",
-          error.message
+          error.message,
         );
         socket.emit("message_error", { error: "Faild to send message" });
       }
@@ -98,7 +98,7 @@ export const initializeSocket = (server) => {
           {
             _id: { $in: messageIds },
           },
-          { $set: { messageStatus: "read" } }
+          { $set: { messageStatus: "read" } },
         );
 
         const senderSocketId = onlineUsers.get(senderId);
@@ -113,7 +113,7 @@ export const initializeSocket = (server) => {
       } catch (error) {
         console.error(
           "Error while updating messageStatus mark as read in socket",
-          error.message
+          error.message,
         );
       }
     });
@@ -172,23 +172,23 @@ export const initializeSocket = (server) => {
       });
     });
 
-    //delete action 
+    //delete action
     socket.on("delete_message", async ({ messageId, conversationId }) => {
-  try {
-    await Message.findByIdAndDelete(messageId);
+      try {
+        await Message.findByIdAndDelete(messageId);
 
-    const users = io.socketUserMap;
+        const users = io.socketUserMap;
 
-    users.forEach((socketId) => {
-      io.to(socketId).emit("mesage_delected", {
-        deletetMessageId: messageId,
-        conversationId,
-      });
+        users.forEach((socketId) => {
+          io.to(socketId).emit("mesage_delected", {
+            deletetMessageId: messageId,
+            conversationId,
+          });
+        });
+      } catch (err) {
+        console.error("Delete message socket error", err.message);
+      }
     });
-  } catch (err) {
-    console.error("Delete message socket error", err.message);
-  }
-});
 
     //add reaction on time to both user in conversation
     // add reaction to both users
@@ -200,7 +200,7 @@ export const initializeSocket = (server) => {
           if (!message) return;
 
           const existingIndex = message.reactions.findIndex(
-            (r) => r.user.toString() === reactionUserId
+            (r) => r.user.toString() === reactionUserId,
           );
 
           if (existingIndex > -1) {
@@ -226,10 +226,10 @@ export const initializeSocket = (server) => {
             .populate("reactions.user", "username profilePhoto");
 
           const senderSocket = onlineUsers.get(
-            populatedMessage.sender._id.toString()
+            populatedMessage.sender._id.toString(),
           );
           const receiverSocket = onlineUsers.get(
-            populatedMessage.receiver._id.toString()
+            populatedMessage.receiver._id.toString(),
           );
 
           const payload = {
@@ -244,48 +244,218 @@ export const initializeSocket = (server) => {
         } catch (error) {
           console.error("Error handling Reactions in Socket", error.message);
         }
-      }
+      },
     );
 
-
-    //follow user in real-time
-    socket.on("follow_user",async({followerId,followedId}) =>{
+    socket.on("follow_user", async ({ followerId, followedId }) => {
       try {
-        if(!followedId || !followerId) return;
+        console.log("Socket follow_user event received:", {
+          followerId,
+          followedId,
+        });
+
+        if (!followedId || !followerId) {
+          console.warn("Missing followerId or followedId");
+          return;
+        }
 
         const followedSocketId = onlineUsers.get(followedId);
 
-        if(followedSocketId){
-          io.to(followedSocketId).emit("follow_event",{
-            followedId,
+        console.log("Followed user socket ID:", followedSocketId);
+        console.log("Online users:", Array.from(onlineUsers.keys()));
+
+        if (followedSocketId) {
+          // Emit to the followed user
+          io.to(followedSocketId).emit("follow_event", {
             followerId,
-            type:"follow"
-          })
+            followedId,
+            type: "follow",
+          });
+          console.log("Follow event emitted to:", followedSocketId);
+        } else {
+          console.log("Followed user is offline or not connected");
         }
       } catch (error) {
-        console.error("Scoket follow error",error.message);
-        
+        console.error("Socket follow error:", error.message);
       }
-    })
-    //unfollow user in real-time
-    socket.on("unfollow_user",async({followerId,followedId}) =>{
+    });
+
+    // Unfollow user in real-time
+    socket.on("unfollow_user", async ({ followerId, followedId }) => {
       try {
-        if(!followedId || !followerId) return;
+        console.log("Socket unfollow_user event received:", {
+          followerId,
+          followedId,
+        });
+
+        if (!followedId || !followerId) {
+          console.warn("Missing followerId or followedId");
+          return;
+        }
 
         const followedSocketId = onlineUsers.get(followedId);
 
-        if(followedSocketId){
-          io.to(followedSocketId).emit("unfollow_event",{
-            followedId,
+        console.log("Followed user socket ID:", followedSocketId);
+
+        if (followedSocketId) {
+          // Emit to the followed user
+          io.to(followedSocketId).emit("unfollow_event", {
             followerId,
-            type:"unfollow"
-          })
+            followedId,
+            type: "unfollow",
+          });
+          console.log("Unfollow event emitted to:", followedSocketId);
+        } else {
+          console.log("Followed user is offline or not connected");
         }
       } catch (error) {
-        console.error("Scoket unfollow error",error.message);
-        
+        console.error("Socket unfollow error:", error.message);
       }
-    })
+    });
+
+    // socket/socket.js - Add these handlers to your existing socket initialization
+
+// Like post in real-time
+socket.on("like_post", async ({ postId, userId, action }) => {
+  try {
+    console.log("Socket like_post event received:", { postId, userId, action });
+    
+    if (!postId || !userId) {
+      console.warn("Missing postId or userId");
+      return;
+    }
+
+    // Get the post to find all users who should be notified
+    const post = await Post.findById(postId).populate("author", "_id");
+    
+    if (!post) {
+      console.warn("Post not found:", postId);
+      return;
+    }
+
+    // Notify post author if they're not the one liking
+    if (post.author._id.toString() !== userId) {
+      const authorSocketId = onlineUsers.get(post.author._id.toString());
+      
+      if (authorSocketId) {
+        io.to(authorSocketId).emit("post_liked", {
+          postId,
+          userId,
+          action, // "like" or "unlike"
+          likesCount: post.likes.length,
+        });
+        console.log("Post like event emitted to author:", authorSocketId);
+      }
+    }
+
+    // Broadcast to all users viewing the post (optional)
+    socket.broadcast.emit("post_interaction", {
+      postId,
+      userId,
+      type: "like",
+      action,
+      likesCount: post.likes.length,
+    });
+
+  } catch (error) {
+    console.error("Socket like error:", error.message);
+  }
+});
+
+// Bookmark post in real-time
+socket.on("bookmark_post", async ({ postId, userId, action }) => {
+  try {
+    console.log("Socket bookmark_post event received:", { postId, userId, action });
+    
+    if (!postId || !userId) {
+      console.warn("Missing postId or userId");
+      return;
+    }
+
+    // Broadcast to all users (for real-time bookmark count updates)
+    socket.broadcast.emit("post_interaction", {
+      postId,
+      userId,
+      type: "bookmark",
+      action, // "bookmark" or "unbookmark"
+    });
+
+  } catch (error) {
+    console.error("Socket bookmark error:", error.message);
+  }
+});
+
+// Comment on post in real-time
+socket.on("comment_post", async ({ postId, userId, comment }) => {
+  try {
+    console.log("Socket comment_post event received:", { postId, userId });
+    
+    if (!postId || !userId || !comment) {
+      console.warn("Missing required fields");
+      return;
+    }
+
+    const post = await Post.findById(postId).populate("author", "_id");
+    
+    if (!post) {
+      console.warn("Post not found:", postId);
+      return;
+    }
+
+    // Notify post author
+    if (post.author._id.toString() !== userId) {
+      const authorSocketId = onlineUsers.get(post.author._id.toString());
+      
+      if (authorSocketId) {
+        io.to(authorSocketId).emit("post_commented", {
+          postId,
+          userId,
+          comment,
+          commentsCount: post.comments.length,
+        });
+        console.log("Post comment event emitted to author:", authorSocketId);
+      }
+    }
+
+    // Broadcast to all users viewing the post
+    socket.broadcast.emit("post_interaction", {
+      postId,
+      userId,
+      type: "comment",
+      comment,
+      commentsCount: post.comments.length,
+    });
+
+  } catch (error) {
+    console.error("Socket comment error:", error.message);
+  }
+});
+
+// Share post tracking (for analytics)
+socket.on("share_post", async ({ postId, userId, platform }) => {
+  try {
+    console.log("Socket share_post event received:", { postId, userId, platform });
+    
+    if (!postId || !userId) {
+      console.warn("Missing postId or userId");
+      return;
+    }
+
+    // You can track shares in your database here if needed
+    // await Post.findByIdAndUpdate(postId, { $inc: { shares: 1 } });
+
+    // Broadcast share event (optional)
+    socket.broadcast.emit("post_interaction", {
+      postId,
+      userId,
+      type: "share",
+      platform,
+    });
+
+  } catch (error) {
+    console.error("Socket share error:", error.message);
+  }
+});
 
     const handleDisconnect = async () => {
       try {
@@ -313,7 +483,7 @@ export const initializeSocket = (server) => {
           lastSeen: new Date(),
         });
 
-        socket.leave(userId), console.log(`user ${userId} disconnected`);
+        (socket.leave(userId), console.log(`user ${userId} disconnected`));
       } catch (error) {
         console.error("Error handling disconnection", error.message);
       }
@@ -322,9 +492,6 @@ export const initializeSocket = (server) => {
     //disconnect event
 
     socket.on("disconnect", handleDisconnect);
-
-
-
   });
 
   io.socketUserMap = onlineUsers;

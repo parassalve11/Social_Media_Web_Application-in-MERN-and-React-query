@@ -1,7 +1,5 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { useToast } from "../UI/ToastManager";
-import axiosInstance from "../../lib/axiosIntance";
+// components/Post/Post.jsx
+import React, { useState } from "react";
 import { formatDistanceToNowStrict } from "date-fns";
 import {
   Bookmark,
@@ -13,122 +11,61 @@ import {
   ThumbsUp,
   Trash2,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import PostAction from "./PostAction";
-import { Link, useParams } from "react-router-dom";
 import Dialog from "../UI/Dialog";
 import DropdownComponent from "../UI/DropdownComponent";
-import UserTooltip from "../UserTooltip.jsx";
+import UserTooltip from "../UserTooltip";
 import EditPostDialog from "./EditPostDialog";
+import ShareMenu from "./ShareMenu";
+import LikeAnimation from "./LikeAnimation";
+import { usePostActions } from "../../hooks/usePostActions";
+import { useUser } from "../../store/user/useUser";
 
-export default function Post({ post }) {
-  const { hashtag } = useParams();
+function Post({ post }) {
   const [newComment, setNewComment] = useState("");
   const [comments, setComments] = useState(post?.comments || []);
   const [showComment, setShowComment] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
-  const { addToast } = useToast();
+  const [showShareMenu, setShowShareMenu] = useState(false);
 
-  const queryClient = useQueryClient();
-  const authUser = queryClient.getQueryData(["authUser"]);
+  const { user: authUser } = useUser();
 
-  const isOwner = authUser?._id === post.author?._id;
-  const isLiked = post.likes?.includes(authUser?._id);
-  const isBookmarked = post.bookmarks?.includes(authUser?._id);
-
-  const { mutate: deletingPostMuation, isPending: isDeletingPost } =
-    useMutation({
-      mutationFn: async () =>
-        await axiosInstance.delete(`/posts/delete/${post._id}`),
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["for-you"] });
-        queryClient.invalidateQueries({ queryKey: ["following"] });
-        queryClient.invalidateQueries({ queryKey: ["posts", post._id] });
-        addToast("Post Deleted successfully", {
-          type: "success",
-          duration: 3000,
-        });
-      },
-      onError: (error) => {
-        addToast(error.message || "Failed to Delete Post", {
-          type: "error",
-          duration: 3000,
-        });
-      },
-    });
-
-  const { mutate: createCommentMuatation, isPending: isCommenting } =
-    useMutation({
-      mutationFn: async (newComment) =>
-        await axiosInstance.post(`/posts/${post._id}/comment`, {
-          content: newComment,
-        }),
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["for-you"] });
-        queryClient.invalidateQueries({ queryKey: ["following"] });
-        queryClient.invalidateQueries({ queryKey: ["posts", post._id] });
-        addToast("Commented successfully", { type: "success", duration: 3000 });
-      },
-      onError: (error) => {
-        addToast(error.message || "Failed to Comment", {
-          type: "error",
-          duration: 3000,
-        });
-      },
-    });
-
-  const { mutate: likingPostMuatation, isPending: isLiking } = useMutation({
-    mutationFn: async () => await axiosInstance.post(`/posts/${post._id}/like`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["for-you"] });
-      queryClient.invalidateQueries({ queryKey: ["following"] });
-      queryClient.invalidateQueries({ queryKey: ["posts", post._id] });
-      queryClient.invalidateQueries({ queryKey: ["hashtagPosts", hashtag] });
-    },
-    onError: (error) => {
-      addToast(error.message || "Failed to Like", {
-        type: "error",
-        duration: 3000,
-      });
-    },
-  });
-
-  const { mutate: bookmarkPostMuatation, isPending: isBookmarking } =
-    useMutation({
-      mutationFn: async () =>
-        await axiosInstance.post(`/posts/${post._id}/bookmark`),
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["for-you"] });
-        queryClient.invalidateQueries({ queryKey: ["following"] });
-        queryClient.invalidateQueries({ queryKey: ["posts", post._id] });
-        queryClient.invalidateQueries({ queryKey: ["hashtagPosts", hashtag] });
-        addToast(`🔖 Post bookmarked`, { type: "success", duration: 3000 });
-      },
-      onError: (error) => {
-        addToast(error.message || "Failed to Bookmark", {
-          type: "error",
-          duration: 3000,
-        });
-      },
-    });
+  const {
+    likePost,
+    bookmarkPost,
+    addComment,
+    deletePost,
+    sharePost,
+    isLiking,
+    isBookmarking,
+    isCommenting,
+    isDeleting,
+    isLiked,
+    isBookmarked,
+    isOwner,
+  } = usePostActions(post);
 
   const handleLikePost = () => {
     if (isLiking) return;
-    likingPostMuatation();
+    likePost();
   };
 
   const handleBookmarkPost = () => {
     if (isBookmarking) return;
-    bookmarkPostMuatation();
+    bookmarkPost();
   };
 
   const handleAddComment = (e) => {
     e.preventDefault();
-    if (!newComment.trim()) return;
-    createCommentMuatation(newComment);
+    if (!newComment.trim() || isCommenting) return;
+
+    // Optimistic update
     setComments([
       ...comments,
       {
+        _id: Date.now().toString(),
         content: newComment,
         user: {
           _id: authUser._id,
@@ -138,11 +75,13 @@ export default function Post({ post }) {
         createdAt: new Date(),
       },
     ]);
+    
+    addComment(newComment);
     setNewComment("");
   };
 
   const handleDeletePost = () => {
-    deletingPostMuation();
+    deletePost();
     setShowDeleteDialog(false);
   };
 
@@ -154,9 +93,13 @@ export default function Post({ post }) {
     }
   };
 
+  const handleShare = async (platform) => {
+    await sharePost(platform);
+  };
+
   const options = [
-    { label: "Edit", value: "edit", icon: <Edit2 /> },
-    { label: "Delete", value: "delete", icon: <Trash2 /> },
+    { label: "Edit", value: "edit", icon: <Edit2 size={16} /> },
+    { label: "Delete", value: "delete", icon: <Trash2 size={16} /> },
   ];
 
   const highlightContent = (text) => {
@@ -171,17 +114,21 @@ export default function Post({ post }) {
 
     return escapedText.replace(/(#\w+)|(@\w+)/g, (match) =>
       match.startsWith("#")
-        ? `<a href="/hashtag/${match.slice(
-            1
-          )}" class="text-blue-500 hover:text-blue-600 font-medium underline decoration-2 underline-offset-4 cursor-pointer transition-colors duration-200">${match}</a>`
-        : `<a href="/profile/${match.slice(
-            1
-          )}" class="text-gray-500 hover:text-gray-600 font-medium underline decoration-2 underline-offset-4 cursor-pointer transition-colors duration-200">${match}</a>`
+        ? `<a href="/hashtag/${match.slice(1)}" class="text-blue-500 hover:text-blue-600 font-semibold transition-colors duration-200">${match}</a>`
+        : `<a href="/profile/${match.slice(1)}" class="text-purple-600 hover:text-purple-700 font-semibold transition-colors duration-200">${match}</a>`
     );
   };
 
   return (
-    <article className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-4 mx-auto max-w-md sm:max-w-lg transition-all duration-200 hover:shadow-md">
+    <article className="relative bg-white rounded-2xl shadow-sm border border-gray-100 mb-4 mx-auto max-w-4xl sm:max-w-lg transition-all duration-300 hover:shadow-xl hover:border-gray-200 overflow-hidden">
+      {/* Like Animation Overlay - Controlled by isLiked prop */}
+      <LikeAnimation
+        isLiked={isLiked}
+        onAnimationComplete={() => {
+          console.log("Like animation completed");
+        }}
+      />
+
       {/* Header */}
       <div className="flex items-start justify-between p-4">
         <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -190,20 +137,20 @@ export default function Post({ post }) {
               <img
                 src={post.author?.avatar || "/placeholder.png"}
                 alt={post.author?.name || "User"}
-                className="w-10 h-10 rounded-full object-cover ring-2 ring-white shadow-md hover:scale-105 transition-transform duration-200"
+                className="w-12 h-12 rounded-full object-cover ring-2 ring-white shadow-lg hover:ring-blue-400 hover:scale-110 transition-all duration-300"
                 loading="lazy"
               />
             </Link>
           </UserTooltip>
           <div className="min-w-0 flex-1">
             <Link to={`/profile/${post.author?.username}`}>
-              <h3 className="text-sm font-semibold text-gray-900 truncate hover:text-blue-600 transition-colors duration-200">
+              <h3 className="text-sm font-bold text-gray-900 truncate hover:text-blue-600 transition-colors duration-200">
                 {post.author?.name || "Unknown User"}
               </h3>
             </Link>
             <Link
               to={`/profile/${post.author?.username}`}
-              className="block text-xs text-gray-500 hover:text-gray-600 transition-colors duration-200"
+              className="block text-xs text-gray-500 hover:text-blue-600 transition-colors duration-200"
             >
               @{post.author?.username || ""}
             </Link>
@@ -215,14 +162,12 @@ export default function Post({ post }) {
         {isOwner && (
           <DropdownComponent
             triggerElement={
-              <PostAction
-                icon={<MoreHorizontal size={18} className="text-gray-500" />}
-                text=""
-                className="p-2 rounded-full hover:bg-gray-100 transition-colors duration-200"
-              />
+              <button className="p-2 rounded-full hover:bg-gray-100 transition-colors duration-200">
+                <MoreHorizontal size={20} className="text-gray-500" />
+              </button>
             }
             options={options}
-            className="shadow-lg rounded-xl text-gray-900"
+            className="shadow-xl rounded-xl bg-white border border-gray-200"
             onSelect={handleOptionSelect}
             variant="default"
           />
@@ -230,132 +175,175 @@ export default function Post({ post }) {
       </div>
 
       {/* Content */}
-      <Link to={`/post/${post._id}`} className="block">
+      <Link to={`/post/${post._id}`} className="block group">
         <div className="px-4 pb-4">
           <p
-            className="text-gray-800 text-sm leading-6 mb-3 break-words"
+            className="text-gray-800 text-sm leading-relaxed break-words"
             dangerouslySetInnerHTML={{ __html: highlightContent(post.content) }}
           />
         </div>
 
         {post.image && (
-          <div className="relative overflow-hidden rounded-b-2xl">
+          <div className="relative overflow-hidden">
             <img
               src={post.image}
-              alt="Post Image"
-              className="w-full aspect-[1.2] object-cover transition-transform duration-300 hover:scale-105"
+              alt="Post content"
+              className="w-full aspect-[1.2] object-cover transition-transform duration-500 group-hover:scale-105"
               loading="lazy"
             />
           </div>
         )}
       </Link>
 
+      {/* Stats Bar */}
+      <div className="flex items-center justify-between px-4 py-2 text-xs text-gray-500 border-t border-gray-50">
+        <span>{post.likes?.length || 0} likes</span>
+        <span>{comments.length || 0} comments</span>
+      </div>
+
       {/* Actions */}
-      <div className="flex justify-between items-center px-4 py-3 border-t border-gray-100">
+      <div className="flex justify-around items-center px-2 py-3 border-t border-gray-100 bg-gray-50/50">
         <PostAction
           icon={
             <ThumbsUp
-              size={18}
-              className={`transition-all duration-200 ${
-                isLiked ? "text-red-500 fill-red-500 scale-110" : "text-gray-500"
+              size={20}
+              className={`transition-all duration-300 ${
+                isLiked
+                  ? "text-blue-600 fill-blue-600 scale-110"
+                  : "text-gray-600"
               }`}
             />
           }
-          text={post.likes?.length ? `${post.likes.length}` : ""}
+          text={isLiked ? "Liked" : "Like"}
           onClick={handleLikePost}
-          className={`group rounded-full px-3 py-2 transition-all duration-200 ${
+          isDisabled={isLiking}
+          className={`flex-1 rounded-lg px-4 py-2 transition-all duration-200 ${
             isLiked
-              ? "text-red-500 font-semibold"
-              : "hover:bg-red-50 hover:text-red-500"
+              ? "text-blue-600 font-semibold bg-blue-50"
+              : "hover:bg-gray-100 text-gray-700"
           }`}
         />
+        
         <PostAction
           icon={
             <MessageCircle
-              size={18}
+              size={20}
               className={`transition-colors duration-200 ${
-                showComment ? "text-blue-500 fill-blue-500" : "text-gray-500"
+                showComment ? "text-green-600 fill-green-600" : "text-gray-600"
               }`}
             />
           }
-          text={comments.length ? `${comments.length}` : ""}
+          text="Comment"
           onClick={() => setShowComment(!showComment)}
-          className="rounded-full px-3 py-2 hover:bg-blue-50 hover:text-blue-500 transition-all duration-200"
+          className={`flex-1 rounded-lg px-4 py-2 transition-all duration-200 ${
+            showComment
+              ? "text-green-600 font-semibold bg-green-50"
+              : "hover:bg-gray-100 text-gray-700"
+          }`}
         />
+
+        <PostAction
+          icon={
+            <Share
+              size={20}
+              className="text-gray-600 transition-colors duration-200"
+            />
+          }
+          text="Share"
+          onClick={() => setShowShareMenu(true)}
+          className="flex-1 rounded-lg px-4 py-2 hover:bg-gray-100 text-gray-700 transition-all duration-200"
+        />
+
         <PostAction
           icon={
             <Bookmark
-              size={18}
-              className={`transition-all duration-200 ${
-                isBookmarked ? "text-purple-500 fill-purple-500 scale-110" : "text-gray-500"
+              size={20}
+              className={`transition-all duration-300 ${
+                isBookmarked
+                  ? "text-amber-600 fill-amber-600 scale-110"
+                  : "text-gray-600"
               }`}
             />
           }
           text=""
           onClick={handleBookmarkPost}
-          className={`rounded-full px-3 py-2 transition-all duration-200 ${
+          isDisabled={isBookmarking}
+          className={`rounded-lg px-3 py-2 transition-all duration-200 ${
             isBookmarked
-              ? "text-purple-500 font-semibold"
-              : "hover:bg-purple-50 hover:text-purple-500"
+              ? "text-amber-600 font-semibold bg-amber-50"
+              : "hover:bg-gray-100 text-gray-700"
           }`}
-        />
-        <PostAction
-          icon={<Share size={18} className="text-gray-500" />}
-          text=""
-          className="rounded-full px-3 py-2 hover:bg-gray-50 hover:text-gray-600 transition-all duration-200"
         />
       </div>
 
-      {/* Comments */}
+      {/* Comments Section */}
       <div
-        className={`overflow-hidden transition-all duration-300 ease-out ${
-          showComment ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+        className={`overflow-hidden transition-all duration-300 ease-in-out ${
+          showComment ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
         }`}
       >
-        <div className="max-h-64 overflow-y-auto px-4 pb-4 space-y-3">
-          {comments.map((comment) => (
-            <div
-              key={comment._id}
-              className="flex items-start gap-3 p-3 bg-gray-50/50 rounded-xl hover:bg-gray-100 transition-colors duration-200"
-            >
-              <img
-                src={comment.user?.avatar || "/placeholder.png"}
-                alt={comment.user?.name || "User"}
-                className="w-8 h-8 rounded-full object-cover ring-1 ring-white shadow-sm flex-shrink-0 mt-0.5"
-                loading="lazy"
-              />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm font-medium text-gray-900 truncate">
-                    {comment.user?.name || "Unknown"}
-                  </span>
-                  <time className="text-xs text-gray-400">
-                    {formatDistanceToNowStrict(new Date(comment.createdAt))}
-                  </time>
-                </div>
-                <p className="text-sm text-gray-800 leading-relaxed">
-                  {comment.content}
-                </p>
-              </div>
+        <div className="max-h-80 overflow-y-auto px-4 py-4 space-y-3 bg-gray-50/30">
+          {comments.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <MessageCircle size={40} className="mx-auto mb-2 opacity-50" />
+              <p className="text-sm">No comments yet. Be the first!</p>
             </div>
-          ))}
+          ) : (
+            comments.map((comment) => (
+              <div
+                key={comment._id}
+                className="flex items-start gap-3 p-3 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-100"
+              >
+                <img
+                  src={comment.user?.avatar || "/placeholder.png"}
+                  alt={comment.user?.name || "User"}
+                  className="w-9 h-9 rounded-full object-cover ring-2 ring-white shadow-sm flex-shrink-0"
+                  loading="lazy"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm font-semibold text-gray-900 truncate">
+                      {comment.user?.name || "Unknown"}
+                    </span>
+                    <time className="text-xs text-gray-400">
+                      {formatDistanceToNowStrict(new Date(comment.createdAt))}
+                    </time>
+                  </div>
+                  <p className="text-sm text-gray-700 leading-relaxed">
+                    {comment.content}
+                  </p>
+                </div>
+              </div>
+            ))
+          )}
         </div>
+        
+        {/* Comment Input */}
         {showComment && (
-          <form onSubmit={handleAddComment} className="flex items-center gap-2 px-4 pb-4 bg-gray-50 rounded-b-2xl">
+          <form
+            onSubmit={handleAddComment}
+            className="flex items-center gap-2 px-4 pb-4 pt-3 bg-white border-t border-gray-100"
+          >
+            <img
+              src={authUser?.avatar || "/placeholder.png"}
+              alt="Your avatar"
+              className="w-9 h-9 rounded-full object-cover ring-2 ring-white shadow-sm flex-shrink-0"
+            />
             <input
               type="text"
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
-              placeholder="Add a comment..."
-              className="flex-1 p-3 rounded-full bg-white border border-gray-200 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+              placeholder="Write a comment..."
+              disabled={isCommenting}
+              className="flex-1 px-4 py-2 rounded-full bg-gray-100 border border-transparent text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-blue-200 transition-all duration-200"
             />
             <button
               type="submit"
               disabled={!newComment.trim() || isCommenting}
-              className={`p-3 rounded-full transition-all duration-200 ${
+              className={`p-2.5 rounded-full transition-all duration-200 ${
                 newComment.trim()
-                  ? "bg-blue-500 text-white hover:bg-blue-600 shadow-sm"
-                  : "text-gray-400 cursor-not-allowed"
+                  ? "bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg active:scale-95"
+                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
               }`}
             >
               <Send size={18} />
@@ -364,21 +352,29 @@ export default function Post({ post }) {
         )}
       </div>
 
+      {/* Share Menu */}
+      {showShareMenu && (
+        <ShareMenu
+          onShare={handleShare}
+          onClose={() => setShowShareMenu(false)}
+        />
+      )}
+
       {/* Delete Dialog */}
       <Dialog
         isOpen={showDeleteDialog}
         onClose={() => setShowDeleteDialog(false)}
         headline="Delete Post?"
-        description="This can't be undone and it will be removed from your profile, any edits, and actions will be gone."
+        description="This action cannot be undone. The post will be permanently removed from your profile."
         actionText="Delete"
         variant="destructive"
-        isLoading={isDeletingPost}
+        isLoading={isDeleting}
         actionIcon={<Trash2 size={18} />}
         onAction={handleDeletePost}
-        className="bg-white rounded-2xl shadow-2xl border border-gray-200 max-w-sm mx-auto"
-        actionButtonClass="bg-red-600 hover:bg-red-700 text-white rounded-xl px-6 py-3 font-medium"
-        cancelButtonClass="bg-white hover:bg-gray-50 text-gray-900 rounded-xl px-6 py-3 font-medium border border-gray-200"
+        className="bg-white rounded-2xl shadow-2xl border border-gray-200"
       />
+
+      {/* Edit Dialog */}
       <EditPostDialog
         post={post}
         showEditDialog={showEditDialog}
@@ -387,3 +383,12 @@ export default function Post({ post }) {
     </article>
   );
 }
+
+export default React.memo(Post, (prev, next) => {
+  return (
+    prev.post._id === next.post._id &&
+    prev.post.likes?.length === next.post.likes?.length &&
+    prev.post.comments?.length === next.post.comments?.length &&
+    prev.post.bookmarks?.length === next.post.bookmarks?.length
+  );
+});

@@ -8,32 +8,32 @@ export const followUser = async (req, res) => {
     const { userId } = req.params;
     const followerId = req.user._id;
 
-    //check your following to you
+    // Check if trying to follow yourself
     if (followerId.toString() === userId) {
-      return res.status(401).json({ message: "You can not follow yourslef" });
+      return res.status(401).json({ message: "You cannot follow yourself" });
     }
 
     const follower = await User.findById(followerId);
     const following = await User.findById(userId);
 
-    //user is exists
-
+    // Check if users exist
     if (!follower || !following) {
-      return res.status(400).json({ message: "User not Found" });
+      return res.status(400).json({ message: "User not found" });
     }
 
-    const exisitingFollow = await Follow.findOne({
+    const existingFollow = await Follow.findOne({
       follower: followerId,
       followed: userId,
     });
 
-    if (exisitingFollow) {
-      return res.status(400).json({ message: "already following  this User" });
+    if (existingFollow) {
+      return res.status(400).json({ message: "Already following this user" });
     }
+
     const follow = new Follow({
-  follower: followerId,
-  followed: userId,
-});
+      follower: followerId,
+      followed: userId,
+    });
 
     await follow.save();
 
@@ -53,24 +53,27 @@ export const followUser = async (req, res) => {
 
     await notification.save();
 
-    //Real time socket event
+    // ❌ REMOVE THIS - Let the frontend handle socket emission
+    // const followedSocketId = req.socketUserMap.get(userId.toString())
+    // if(followedSocketId){
+    //   req.io.to(followedSocketId).emit("follow_event",{
+    //     followerId,
+    //     followedId:userId,
+    //     type:"follow"
+    //   })
+    // }
 
-    const followedSocketId = req.socketUserMap.get(userId.toString())
-
-    if(followedSocketId){
-      req.io.to(followedSocketId).emit("follow_event",{
-        followerId,
-        followedId:userId,
-        type:"follow"
-      })
-    }
-
-    res.status(200).json({ message: "Succesfully followed User" });
+    res.status(200).json({ 
+      message: "Successfully followed user",
+      followerId: followerId.toString(),
+      followedId: userId.toString()
+    });
   } catch (error) {
     console.log("Error in followUser Controller", error.message);
     res.status(500).json({ message: "Server Error" });
   }
 };
+
 export const unfollowUser = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -80,18 +83,16 @@ export const unfollowUser = async (req, res) => {
     const following = await User.findById(userId);
 
     if (!followers || !following) {
-      return res.status(400).json({ message: "User not Found" });
+      return res.status(400).json({ message: "User not found" });
     }
 
-    const exisitingFollow = await Follow.findOne({
+    const existingFollow = await Follow.findOne({
       follower: followerId,
       followed: userId,
     });
 
-    if (!exisitingFollow) {
-      return res
-        .status(401)
-        .json({ message: "You are already unfollowed this User" });
+    if (!existingFollow) {
+      return res.status(401).json({ message: "You are not following this user" });
     }
 
     await Follow.deleteOne({ follower: followerId, followed: userId });
@@ -110,24 +111,30 @@ export const unfollowUser = async (req, res) => {
       relatedUser: followerId,
     });
 
-    //Real time socket event
+    // ❌ REMOVE THIS - Let the frontend handle socket emission
+    // const followedSocketId = req.socketUserMap.get(userId.toString())
+    // if(followedSocketId){
+    //   req.io.to(followedSocketId).emit("unfollow_event",{
+    //     followerId,
+    //     followedId:userId,
+    //     type:"unfollow"
+    //   })
+    // }
 
-    const followedSocketId = req.socketUserMap.get(userId.toString())
-
-    if(followedSocketId){
-      req.io.to(followedSocketId).emit("unfollow_event",{
-        followerId,
-        followedId:userId,
-        type:"unfollow"
-      })
-    }
-
-    res.status(200).json({ message: "Successffuly unfollowed User" });
+    res.status(200).json({ 
+      message: "Successfully unfollowed user",
+      followerId: followerId.toString(),
+      followedId: userId.toString()
+    });
   } catch (error) {
     console.log("Error in unfollowUser Controller", error.message);
     res.status(500).json({ message: "Server Error" });
   }
 };
+
+
+
+
 export const getfollowers = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -159,7 +166,7 @@ export const getfollowing = async (req, res) => {
     return res.status(400).json({ message: "User not found" });
   }
 
-  res.json(user.following);
+  res.json(user?.following);
   try {
   } catch (error) {
     console.log("Error in getfollowing Controller", error.message);

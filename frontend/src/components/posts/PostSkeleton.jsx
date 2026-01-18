@@ -1,6 +1,6 @@
 export default function PostSkeleton() {
   return (
-    <article className="bg-white rounded-xl shadow-md border border-gray-200 mb-6 p-6 mx-auto max-w-4xl animate-pulse">
+    <article className="bg-white rounded-xl shadow-md border border-gray-200 mb-6 p-6 mx-auto max-w-lg animate-pulse">
       {/* Header Skeleton */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
