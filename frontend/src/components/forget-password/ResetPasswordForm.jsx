@@ -1,11 +1,13 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import React, { useEffect, useState } from "react";
+import React, { useMemo, useState } from "react";
 import axiosInstance from "../../lib/axiosIntance";
-import { Link, useParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useToast } from "../UI/ToastManager";
 import { ArrowLeft, ChevronFirstIcon, Eye, EyeClosed, Loader2, Lock } from "lucide-react";
 import { Input } from "../UI/input";
 import Button from "../UI/ButtonAnimatedGradient";
+import PasswordStrengthMeter from "../auth/PasswordStrengthMeter";
+import { validatePassword } from "../../lib/validation";
 
 
 export default function ResetPasswordForm() {
@@ -14,15 +16,16 @@ export default function ResetPasswordForm() {
   const [error, setError] = useState("");
   const [showPassword,setShowPassword] = useState(false)
 
-  const { email } = useParams();
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get("token");
 
   const queryClient = useQueryClient();
 
   const { addToast } = useToast();
   const { mutate: restPasswordMuation, isPending: isRestingPassword } =
     useMutation({
-      mutationFn: async ({ email,password}) =>
-        await axiosInstance.post(`/auth/forget-password/${email}/reset`, { email,password }),
+      mutationFn: async ({ token, password }) =>
+        await axiosInstance.post(`/auth/reset`, { token, newPassword: password }),
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["authUser"] });
         addToast("Password changed successfully", {
@@ -45,16 +48,25 @@ export default function ResetPasswordForm() {
 
     const handleSubmit =(e) =>{
         e.preventDefault();
-        restPasswordMuation({email,password})
+        const validationError = validatePassword(password);
+        if (validationError) {
+          setError(validationError);
+          return;
+        }
+        if (matchError) {
+          setError(matchError);
+          return;
+        }
+        restPasswordMuation({ token, password })
     }
 
-    useEffect(() =>{
-        if( confromPassword !==password ){
-            setError("Password is not Matching..")
-        }else{
-            setError("")
-        }
-    },[password,confromPassword])
+    const matchError = useMemo(() => {
+      if (!token) return "Reset token missing or invalid.";
+      if (confromPassword && confromPassword !== password) {
+        return "Passwords do not match.";
+      }
+      return "";
+    }, [password, confromPassword, token]);
   return (
     <div>
       <div className=" relative rounded-2xl  p-8">
@@ -73,8 +85,10 @@ export default function ResetPasswordForm() {
       <form onSubmit={handleSubmit}>
         <div className="space-y-5">
           <div>
+        <label className="sr-only" htmlFor="reset-password">New password</label>
         <Input
           name='password'
+            id="reset-password"
             type={showPassword ? "text" : "password"}
             placeholder="Enter Your Password"
             className="w-full"
@@ -82,19 +96,27 @@ export default function ResetPasswordForm() {
             leftIcon={<Lock />}
             rightIcon={
               showPassword ? (
-                <Eye onClick={() => setShowPassword(!showPassword)} />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} aria-label="Hide password">
+                  <Eye />
+                </button>
               ) : (
-                <EyeClosed onClick={() => setShowPassword(!showPassword)} />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} aria-label="Show password">
+                  <EyeClosed />
+                </button>
               )
             }
             required
+            autoComplete="new-password"
           />
 
            
           </div>
+          <PasswordStrengthMeter password={password} />
           <div>
+        <label className="sr-only" htmlFor="reset-confirm">Confirm password</label>
         <Input
           name='conform-password'
+            id="reset-confirm"
             type={"password"}
             placeholder="Confrom Your Password"
             className="w-full"
@@ -102,6 +124,7 @@ export default function ResetPasswordForm() {
             leftIcon={<ChevronFirstIcon />}
             
             required
+            autoComplete="new-password"
           />
 
            
@@ -110,7 +133,7 @@ export default function ResetPasswordForm() {
         <div className="space-y-3 mt-5">
           <Button
             type="submit"
-            disabled={isRestingPassword}
+            disabled={isRestingPassword || !token}
             className="w-full bg-[#fff1ad] hover:bg-[#e6d89c]  text-black"
           >
             {isRestingPassword ? (
@@ -123,8 +146,10 @@ export default function ResetPasswordForm() {
           </Button>
         </div>
       </form>
-        {error && (
-              <p className="text-red-600 text-xs font-light mt-1">{error}</p>
+        {(error || matchError) && (
+              <p className="text-red-600 text-xs font-light mt-3" aria-live="polite">
+                {matchError || error}
+              </p>
             )}
     </div>
   );

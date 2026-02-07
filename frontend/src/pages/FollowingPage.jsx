@@ -1,17 +1,19 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import axiosInstance from "../lib/axiosIntance"; 
 import { useToast } from "../components/UI/ToastManager"; 
 import FollowButton from "../components/FollowButton";
+import { useFollow } from "../store/follow/useFollow";
+import { useUser } from "../store/user/useUser";
+import { useState } from "react";
 
 export default function FollowingPage() {
   const { username } = useParams();
   const { addToast } = useToast();
   const queryClient = useQueryClient();
-
-  const { data: authUser, isLoading: isAuthLoading } = useQuery({
-    queryKey: ["authUser"],
-  });
+  const { followUser, unfollowUser } = useFollow();
+  const { user: authUser } = useUser();
+  const [pendingIds, setPendingIds] = useState([]);
 
   const { data: userProfile, isLoading: isProfileLoading } = useQuery({
     queryKey: ["profile", username],
@@ -39,47 +41,43 @@ export default function FollowingPage() {
     },
   });
 
-  const { mutate: followMutation, isPending: isFollowing } = useMutation({
-    mutationFn: async (userId) =>
-      await axiosInstance.post(`follows/${userId}/follow`),
-
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["following", username] });
-      queryClient.invalidateQueries({ queryKey: ["follow"] });
-      queryClient.invalidateQueries({ queryKey: ["authUser"] });
-      addToast("Followed user", { type: "success", duration: 3000 });
-    },
-    onError: (error) => {
-      console.error("Follow error:", error.message);
-      addToast("Failed to follow user", { type: "error", duration: 3000 });
-    },
-  });
-
-  const { mutate: unFollowMutation, isPending: isUnFollowing } = useMutation({
-    mutationFn: async (userId) =>
-      await axiosInstance.post(`follows/${userId}/unfollow`),
-    onSuccess: () => {
-     queryClient.invalidateQueries({  queryKey: ["following", username], });
-      queryClient.invalidateQueries({ queryKey: ["follow"] });
-      queryClient.invalidateQueries({ queryKey: ["profile", username] });
-      queryClient.invalidateQueries({ queryKey: ["authUser"] });
-      addToast("Unfollowed user", { type: "success", duration: 3000 });
-    },
-    onError: (error) => {
-      console.error("Unfollow error:", error.message);
-      addToast("Failed to unfollow user", { type: "error", duration: 3000 });
-    },
-  });
-  const isDisabled = isFollowing || isUnFollowing;
-
-  const getButtonText = (followingUser) => {
-    const isFollowingUser = authUser?.following?.includes(followingUser._id);
-    return isFollowingUser ? "Unfollow" : "Follow";
+  const setPending = (userId, value) => {
+    setPendingIds((prev) =>
+      value ? [...prev, userId] : prev.filter((id) => id !== userId)
+    );
   };
 
-  const getAriaLabel = (followingUser) => {
-    const isFollowingUser = authUser?.following?.includes(followingUser._id);
-    return isFollowingUser ? `Unfollow ${followingUser.username}` : `Follow ${followingUser.username}`;
+  const handleFollow = async (userId) => {
+    if (pendingIds.includes(userId)) return;
+    setPending(userId, true);
+    try {
+      await followUser(userId);
+      addToast("Followed user", { type: "success", duration: 3000 });
+    } catch (error) {
+      console.error("Follow error:", error?.message || error);
+      addToast("Failed to follow user", { type: "error", duration: 3000 });
+    } finally {
+      setPending(userId, false);
+    }
+  };
+
+  const handleUnfollow = async (userId) => {
+    if (pendingIds.includes(userId)) return;
+    setPending(userId, true);
+    try {
+      await unfollowUser(userId);
+      if (isOwnProfile) {
+        queryClient.setQueryData(["following", username], (old = []) =>
+          old.filter((u) => u._id !== userId)
+        );
+      }
+      addToast("Unfollowed user", { type: "success", duration: 3000 });
+    } catch (error) {
+      console.error("Unfollow error:", error?.message || error);
+      addToast("Failed to unfollow user", { type: "error", duration: 3000 });
+    } finally {
+      setPending(userId, false);
+    }
   };
 
   // Debug logs
@@ -90,7 +88,7 @@ export default function FollowingPage() {
       <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-gray-900 mb-4 sm:mb-6 md:mb-8">
         {isOwnProfile ? "Your Following" : `${userData?.username}'s Following`}
       </h1>
-      {isAuthLoading || isProfileLoading || isFollowingLoading ? (
+      {isProfileLoading || isFollowingLoading ? (
         <div className="text-center text-gray-600 text-sm sm:text-base md:text-lg" aria-live="polite">
           Loading following...
         </div>
@@ -108,7 +106,7 @@ export default function FollowingPage() {
             >
               <div className="flex items-center space-x-2 sm:space-x-3 w-auto min-w-0">
                 <img
-                  src={followingUser.avatar || "https://via.placeholder.com/150"}
+                  src={followingUser.avatar }
                   alt={`${followingUser.username}'s avatar`}
                   className="w-9 h-9 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full border-2 border-gray-200 shadow-sm object-cover"
                 />
@@ -130,7 +128,13 @@ export default function FollowingPage() {
                 </Link>
               </div>
               {followingUser._id !== authUser?._id && (
-                <FollowButton userId={followingUser._id} />
+                <FollowButton
+                  userId={followingUser._id}
+                  isFollowing={authUser?.following?.includes(followingUser._id)}
+                  onFollow={() => handleFollow(followingUser._id)}
+                  onUnfollow={() => handleUnfollow(followingUser._id)}
+                  disabled={pendingIds.includes(followingUser._id)}
+                />
               )}
             </li>
           ))}

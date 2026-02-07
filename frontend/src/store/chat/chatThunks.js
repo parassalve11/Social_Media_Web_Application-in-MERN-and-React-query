@@ -16,8 +16,9 @@ export const fetchConversations = createAsyncThunk(
   "chat/fetchConversations",
   async (_, { dispatch }) => {
     const { data } = await axiosInstance.get("/message/conversations");
-    dispatch(setConversations(data));
-    return data;
+    const conversations = data?.data || data || [];
+    dispatch(setConversations(conversations));
+    return conversations;
   }
 );
 
@@ -80,52 +81,52 @@ export const sendMessage = createAsyncThunk(
     );
 
     try {
-      const uploadedUrls = [];
-
-      // Upload files one by one for real progress
-      for (let i = 0; i < mediaFiles.length; i++) {
-        const file = mediaFiles[i];
-        const singleForm = new FormData();
-        singleForm.append("senderId", senderId);
-        singleForm.append("receiverId", receiverId);
-        singleForm.append("media", file);
-
-        const { data } = await axiosInstance.post(
-          "/message/send-message",
-          singleForm,
-          {
-            headers: { "Content-Type": "multipart/form-data" },
-            onUploadProgress: (event) => {
-              if (!event.total) return;
-              const percent = Math.round((event.loaded * 100) / event.total);
+      const { data } = await axiosInstance.post(
+        "/message/send-message",
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+          onUploadProgress: (event) => {
+            if (!event.total || !hasMedia) return;
+            const percent = Math.round((event.loaded * 100) / event.total);
+            for (let i = 0; i < mediaFiles.length; i++) {
               dispatch(
-                updateMediaProgress({ messageId: tempId, index: i, progress: percent })
+                updateMediaProgress({
+                  messageId: tempId,
+                  index: i,
+                  progress: percent,
+                })
               );
-            },
-          }
-        );
+            }
+          },
+        }
+      );
 
-        uploadedUrls.push(data.data?.imageOrVideoUrl?.[0] || "");
-      }
-
-      // After all files uploaded, create final message
-      const finalMessage = {
+      const savedMessage = data?.data || null;
+      const finalMessage = savedMessage || {
         _id: tempId,
         sender: senderId,
         receiver: receiverId,
         conversation: currentConversation,
-        imageOrVideoUrl: uploadedUrls,
+        imageOrVideoUrl: [],
         content,
         contentType,
         createdAt: new Date().toISOString(),
         messageStatus: "send",
-        isUploading: false,
       };
+
+      if (
+        savedMessage?.conversation &&
+        (!currentConversation ||
+          String(savedMessage.conversation) !== String(currentConversation))
+      ) {
+        dispatch(setCurrentConversation(savedMessage.conversation));
+      }
 
       dispatch(
         replaceMessage({
           tempId,
-          message: finalMessage,
+          message: { ...finalMessage, isUploading: false },
         })
       );
 

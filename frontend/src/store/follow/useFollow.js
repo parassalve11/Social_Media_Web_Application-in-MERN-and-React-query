@@ -80,14 +80,11 @@ export const useFollow = () => {
         
         // 3. Emit socket event AFTER successful API call
         const socket = getSocket();
-        if (socket && socket.connected) {
-          console.log("Emitting follow_user event:", { followerId: authUserId, followedId: userId });
+        if (socket) {
           socket.emit("follow_user", {
             followerId: authUserId,
             followedId: userId,
           });
-        } else {
-          console.warn("Socket not connected, cannot emit follow_user event");
         }
 
         return result;
@@ -111,14 +108,11 @@ export const useFollow = () => {
         
         // 3. Emit socket event AFTER successful API call
         const socket = getSocket();
-        if (socket && socket.connected) {
-          console.log("Emitting unfollow_user event:", { followerId: authUserId, followedId: userId });
+        if (socket) {
           socket.emit("unfollow_user", {
             followerId: authUserId,
             followedId: userId,
           });
-        } else {
-          console.warn("Socket not connected, cannot emit unfollow_user event");
         }
 
         return result;

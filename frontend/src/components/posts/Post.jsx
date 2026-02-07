@@ -20,7 +20,7 @@ import EditPostDialog from "./EditPostDialog";
 import ShareMenu from "./ShareMenu";
 import LikeAnimation from "./LikeAnimation";
 import { usePostActions } from "../../hooks/usePostActions";
-import { useUser } from "../../store/user/useUser";
+import { useAuthUserSummary } from "../../store/user/useUser";
 
 function Post({ post }) {
   const [newComment, setNewComment] = useState("");
@@ -30,7 +30,7 @@ function Post({ post }) {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
 
-  const { user: authUser } = useUser();
+  const authUser = useAuthUserSummary();
 
   const {
     likePost,

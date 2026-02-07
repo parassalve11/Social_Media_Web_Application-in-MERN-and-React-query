@@ -23,7 +23,8 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-       required: false, // Optional for Google users
+      required: false, // Optional for Google users
+      select: false,
     },
     googleId: {
       type: String,
@@ -34,6 +35,47 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ["local", "google"],
       default: "local",
+    },
+    emailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    emailVerifiedAt: {
+      type: Date,
+    },
+    verificationTokenHash: {
+      type: String,
+      select: false,
+    },
+    verificationTokenExpiresAt: {
+      type: Date,
+      select: false,
+    },
+    passwordResetTokenHash: {
+      type: String,
+      select: false,
+    },
+    passwordResetTokenExpiresAt: {
+      type: Date,
+      select: false,
+    },
+    failedLoginAttempts: {
+      type: Number,
+      default: 0,
+    },
+    lockoutUntil: {
+      type: Date,
+    },
+    refreshTokenHash: {
+      type: String,
+      select: false,
+    },
+    refreshTokenExpiresAt: {
+      type: Date,
+      select: false,
+    },
+    passwordChangedAt: {
+      type: Date,
     },
     avatar: {
       type: String,
@@ -89,6 +131,9 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+userSchema.index({ verificationTokenHash: 1 });
+userSchema.index({ passwordResetTokenHash: 1 });
 
 const User = mongoose.model("User", userSchema);
 

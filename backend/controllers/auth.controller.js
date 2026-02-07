@@ -1,297 +1,605 @@
 import User from "../models/user.model.js";
-import bcrypt from "bcrypt";
-import { OAuth2Client } from "google-auth-library";
 import jwt from "jsonwebtoken";
-import { redisClient } from "../lib/redis.js";
-import { publishToQueue } from "../lib/mail.js";
 
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+import { AUTH_CONFIG } from "../lib/auth.config.js";
+import { audit } from "../lib/audit.js";
+import { setAuthCookies, clearAuthCookies } from "../lib/authCookies.js";
+import { generateCsrfToken } from "../lib/csrf.js";
+import { logError, logInfo, logWarn } from "../lib/logger.js";
+import { comparePassword, hashPassword, validatePassword } from "../lib/password.js";
+import { rateLimit } from "../lib/rateLimit.js";
+import { createToken, hashToken } from "../lib/tokens.js";
+import { getClientIp, isValidEmail, isValidUsername, normalizeEmail } from "../lib/validators.js";
+
+const accessTokenExpiry = `${AUTH_CONFIG.accessTokenMinutes}m`;
+const refreshTokenExpiry = `${AUTH_CONFIG.refreshTokenDays}d`;
+
+const getRefreshSecret = () =>
+  process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
+
+const verifyCaptcha = async (token, ip) => {
+  if (!process.env.CAPTCHA_VERIFY_URL || !process.env.CAPTCHA_SECRET) {
+    return true;
+  }
+  if (!token) return false;
+
+  const response = await fetch(process.env.CAPTCHA_VERIFY_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      secret: process.env.CAPTCHA_SECRET,
+      response: token,
+      remoteip: ip,
+    }),
+  });
+
+  if (!response.ok) return false;
+  const data = await response.json();
+  return Boolean(data.success);
+};
+
+const issueTokens = async (user, res) => {
+  const accessToken = jwt.sign(
+    { userId: user._id },
+    process.env.JWT_SECRET,
+    { expiresIn: accessTokenExpiry }
+  );
+
+  const refreshToken = jwt.sign(
+    { userId: user._id },
+    getRefreshSecret(),
+    { expiresIn: refreshTokenExpiry }
+  );
+
+  user.refreshTokenHash = hashToken(refreshToken);
+  user.refreshTokenExpiresAt = new Date(
+    Date.now() + AUTH_CONFIG.refreshTokenDays * 24 * 60 * 60 * 1000
+  );
+  await user.save();
+
+  const csrfToken = generateCsrfToken();
+  setAuthCookies({ res, accessToken, refreshToken, csrfToken });
+
+  return { accessToken, csrfToken };
+};
+
+const recordAudit = (req, action, userId, metadata = {}) =>
+  audit({
+    action,
+    userId,
+    ip: getClientIp(req),
+    userAgent: req.headers["user-agent"] || "",
+    metadata,
+  });
 
 export const signUp = async (req, res) => {
   try {
     const { name, username, email, password } = req.body;
+    const normalizedEmail = normalizeEmail(email);
 
-    if (!name || !username || !email || !password) {
-      return res.status(400).json({ message: "All fileds are required" });
+    if (!name || !username || !normalizedEmail || !password) {
+      return res.status(400).json({ message: "All fields are required" });
     }
 
-    const exisitingUsername = await User.findOne({ username });
-
-    if (exisitingUsername) {
-      return res.status(401).json({ message: "Usernname Already exists" });
+    if (!isValidEmail(normalizedEmail)) {
+      return res.status(400).json({ message: "Invalid email address" });
     }
 
-    const existingEmail = await User.findOne({ email });
+    if (!isValidUsername(username)) {
+      return res
+        .status(400)
+        .json({ message: "Username must be at least 3 characters" });
+    }
+
+    const passwordCheck = validatePassword(password);
+    if (!passwordCheck.ok) {
+      return res.status(400).json({
+        message: "Password is too weak",
+        hints: passwordCheck.hints,
+      });
+    }
+
+    const existingUsername = await User.findOne({ username });
+    if (existingUsername) {
+      return res.status(409).json({ message: "Username already in use" });
+    }
+
+    const existingEmail = await User.findOne({ email: normalizedEmail }).select(
+      "+verificationTokenHash +verificationTokenExpiresAt"
+    );
 
     if (existingEmail) {
-      return res.status(401).json({ message: "Email is already exits" });
+      if (!existingEmail.emailVerified) {
+        const { token, tokenHash, expiresAt } = createToken(
+          "verify",
+          existingEmail._id,
+          AUTH_CONFIG.verifyTokenMinutes
+        );
+        existingEmail.verificationTokenHash = tokenHash;
+        existingEmail.verificationTokenExpiresAt = expiresAt;
+        await existingEmail.save();
+        await req.app.locals.emailService?.sendVerificationEmail({
+          user: existingEmail,
+          token,
+        });
+      }
+
+      await recordAudit(req, "signup_existing_email", existingEmail._id);
+      return res.status(200).json({
+        message: "If your email is eligible, you'll receive verification steps.",
+      });
     }
 
-    const hashPassword = await bcrypt.hash(password, 10);
-
-    if (password.length < 6) {
-      return res.status(401).json({ message: "at least 6 Char are required" });
-    }
+    const hashedPassword = await hashPassword(password);
 
     const user = new User({
       name,
       username,
-      email,
-      password: hashPassword,
+      email: normalizedEmail,
+      password: hashedPassword,
+      authSource: "local",
+      emailVerified: false,
     });
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "3d",
-    });
-
-    res.cookie("jwt_social", token, {
-      httpOnly: true,
-      maxAge: 3 * 24 * 60 * 60 * 1000,
-      sameSite: "strict",
-      secure: process.env.NODE_ENV === "production",
-    });
+    const { token, tokenHash, expiresAt } = createToken(
+      "verify",
+      user._id,
+      AUTH_CONFIG.verifyTokenMinutes
+    );
+    user.verificationTokenHash = tokenHash;
+    user.verificationTokenExpiresAt = expiresAt;
 
     await user.save();
 
-    res.status(201).json({ message: "User signUp successffuly",user,token });
+    try {
+      await req.app.locals.emailService?.sendVerificationEmail({
+        user,
+        token,
+      });
+      logInfo("email.verification.sent", { userId: user._id.toString() });
+    } catch (error) {
+      logWarn("email.verification.failed", { error: error.message });
+    }
+
+    await recordAudit(req, "signup", user._id);
+
+    res.status(200).json({
+      message: "If your email is eligible, you'll receive verification steps.",
+    });
   } catch (error) {
-    console.log("Error in Signup Controller", error.message);
-    res.status(500).json({ message: "Server Error " });
+    logError("auth.signup.error", { error: error.message });
+    res.status(500).json({ message: "Server Error" });
   }
 };
+
 export const signIn = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { email, username, identifier, password, captchaToken } = req.body;
+    const loginIdentifier = normalizeEmail(email || identifier || username || "");
+    const ip = getClientIp(req);
 
-    if ((!username, !password)) {
-      return res.status(400).json({ message: "All fileds are required" });
+    if (!loginIdentifier || !password) {
+      return res.status(400).json({ message: "Email and password required" });
     }
 
-    const exisitingUsername = await User.findOne({ username });
-
-    if (!exisitingUsername) {
-      return res.status(401).json({ message: "Username is not exits" });
-    }
-
-    const isPasswordCorrect = await bcrypt.compare(
-      password,
-      exisitingUsername.password
-    );
-    if (!isPasswordCorrect) {
-      return res.status(401).json({ message: "Password is Invalid" });
-    }
-
-    const token = jwt.sign(
-      { userId: exisitingUsername._id },
-      process.env.JWT_SECRET,
-      { expiresIn: "3d" }
-    );
-
-    res.cookie("jwt_social", token, {
-      httpOnly: true,
-      maxAge: 3 * 24 * 60 * 60 * 1000,
-      sameSite: "strict",
-      secure: process.env.NODE_ENV === "production",
+    const rateKey = `login:ip:${ip}`;
+    const ipLimit = await rateLimit({
+      key: rateKey,
+      limit: AUTH_CONFIG.loginRateLimitPerIp,
+      windowSeconds: AUTH_CONFIG.loginRateLimitWindowSec,
     });
 
-    res.status(201).json({ message: "User Signup successffuly",token});
+    if (!ipLimit.allowed) {
+      return res
+        .status(429)
+        .json({ message: "Too many login attempts. Try again later." });
+    }
+
+    const user =
+      (await User.findOne({
+        email: loginIdentifier,
+      }).select("+password +refreshTokenHash +refreshTokenExpiresAt")) ||
+      (await User.findOne({ username: loginIdentifier }).select(
+        "+password +refreshTokenHash +refreshTokenExpiresAt"
+      ));
+
+    if (!user) {
+      await recordAudit(req, "login_failed", null, { reason: "not_found" });
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    if (user.lockoutUntil && user.lockoutUntil > new Date()) {
+      await recordAudit(req, "login_locked", user._id);
+      return res.status(423).json({
+        message: "Account locked. Try again later.",
+        lockedUntil: user.lockoutUntil,
+      });
+    }
+
+    if (user.authSource !== "local") {
+      await recordAudit(req, "login_failed", user._id, { reason: "wrong_source" });
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    const requireCaptcha =
+      user.failedLoginAttempts >= Math.floor(AUTH_CONFIG.maxFailedLogins / 2);
+    if (requireCaptcha) {
+      const captchaOk = await verifyCaptcha(captchaToken, ip);
+      if (!captchaOk) {
+        return res.status(400).json({
+          message: "Captcha verification required",
+          code: "CAPTCHA_REQUIRED",
+        });
+      }
+    }
+
+    const isPasswordCorrect = await comparePassword(password, user.password);
+    if (!isPasswordCorrect) {
+      user.failedLoginAttempts += 1;
+      if (user.failedLoginAttempts >= AUTH_CONFIG.maxFailedLogins) {
+        user.lockoutUntil = new Date(
+          Date.now() + AUTH_CONFIG.lockoutDurationMinutes * 60 * 1000
+        );
+      }
+      await user.save();
+
+      await recordAudit(req, "login_failed", user._id, { reason: "bad_password" });
+
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    if (!user.emailVerified) {
+      await recordAudit(req, "login_failed", user._id, { reason: "unverified" });
+      return res.status(403).json({
+        message: "Email not verified",
+        code: "EMAIL_NOT_VERIFIED",
+        email: user.email,
+      });
+    }
+
+    user.failedLoginAttempts = 0;
+    user.lockoutUntil = null;
+    await user.save();
+
+    const { accessToken } = await issueTokens(user, res);
+
+    await recordAudit(req, "login_success", user._id);
+
+    res.status(200).json({
+      message: "Login successful",
+      token: accessToken,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        username: user.username,
+        avatar: user.avatar,
+      },
+    });
   } catch (error) {
-    console.log("Error in SignIn Controller", error.message);
-    res.status(500).json({ message: "Server Error " });
+    logError("auth.signin.error", { error: error.message });
+    res.status(500).json({ message: "Server Error" });
   }
 };
 
 export const googleAuth = async (req, res) => {
   try {
     const { name, email, googleId } = req.body;
-    if (!name || !email || !googleId) {
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!name || !normalizedEmail || !googleId) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    let user = await User.findOne({ email });
+    let user = await User.findOne({ email: normalizedEmail });
     if (user) {
       if (user.authSource !== "google") {
-        return res
-          .status(401)
-          .json({ message: "User registered with a different auth method" });
+        return res.status(401).json({
+          message: "User registered with a different auth method",
+        });
       }
-      // Update existing Google user
       user.name = name;
       user.googleId = googleId;
+      user.emailVerified = true;
+      user.emailVerifiedAt = new Date();
     } else {
-      // Generate unique username for Google users
-      let username = email.split("@")[0];
+      let username = normalizedEmail.split("@")[0];
       let usernameExists = await User.findOne({ username });
       let suffix = 1;
       while (usernameExists) {
-        username = `${email.split("@")[0]}${suffix}`;
+        username = `${normalizedEmail.split("@")[0]}${suffix}`;
         usernameExists = await User.findOne({ username });
-        suffix++;
+        suffix += 1;
       }
 
       user = new User({
         name,
-        email,
+        email: normalizedEmail,
         googleId,
         username,
         authSource: "google",
+        emailVerified: true,
+        emailVerifiedAt: new Date(),
       });
     }
 
     await user.save();
+    const { accessToken } = await issueTokens(user, res);
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "3d",
+    await recordAudit(req, "google_auth", user._id);
+
+    res.status(200).json({
+      message: "Google authentication successful",
+      token: accessToken,
     });
-
-    res.cookie("jwt_social", token, {
-      httpOnly: true,
-      maxAge: 3 * 24 * 60 * 60 * 1000,
-      sameSite: "strict",
-      secure: process.env.NODE_ENV === "production",
-    });
-
-    res.status(201).json({ message: "Google authentication successful" });
   } catch (error) {
-    console.log("Error in GoogleAuth Controller", error.message);
+    logError("auth.google.error", { error: error.message });
     res.status(500).json({ message: "Server Error" });
   }
 };
 
 export const signOut = async (req, res) => {
   try {
-    res.clearCookie("jwt_social");
-    res.status(201).json({ message: "User SignOut Succesfully" });
+    const refreshToken = req.cookies?.refresh_token;
+    if (refreshToken) {
+      try {
+        const decoded = jwt.verify(refreshToken, getRefreshSecret());
+        const user = await User.findById(decoded.userId).select(
+          "+refreshTokenHash +refreshTokenExpiresAt"
+        );
+        if (user) {
+          user.refreshTokenHash = null;
+          user.refreshTokenExpiresAt = null;
+          await user.save();
+        }
+      } catch (error) {
+        logWarn("auth.signout.refresh_clear_failed", { error: error.message });
+      }
+    }
+
+    clearAuthCookies(res);
+    res.status(200).json({ message: "Signed out" });
   } catch (error) {
-    console.log("Error in SignOut Controller", error.message);
-    res.status(500).json({ message: "Server Error " });
+    logError("auth.signout.error", { error: error.message });
+    res.status(500).json({ message: "Server Error" });
   }
 };
+
 export const getCurrentUser = async (req, res) => {
   try {
     res.json(req.user);
   } catch (error) {
-    console.log("Error in Signup Controller", error.message);
-    res.status(500).json({ message: "Server Error " });
+    logError("auth.me.error", { error: error.message });
+    res.status(500).json({ message: "Server Error" });
   }
 };
 
-
-
-export const emailExist = async (req, res) => {
+export const verifyEmail = async (req, res) => {
   try {
-
-     if (!req.body || !req.body.email) {
-      return res.status(400).json({ message: "Email is required for password reset." });
-    }
-    const { email } = req.body;
-
-    if (!email) {
-      return res.status(400).json({ message: "Email is required for password reset." });
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ message: "Token is required" });
     }
 
-    const existingUser = await User.findOne({ email }).select("-password");
-
-    if (!existingUser) {
-      return res.status(404).json({ message: "Email not found." });
-    }
-
-    const rateLimitKey = `otp:ratelimit:${email}`;
-    const isRateLimited = await redisClient.get(rateLimitKey);
-
-    if (isRateLimited) {
-      return res.status(429).json({ message: "Please wait 1 minute before requesting another OTP." });
-    }
-
-    const otp = Math.floor(100000 + Math.random() * 900000); 
-    const otpKey = `otp:${email}`;
-
-    
-    await redisClient.set(otpKey, otp.toString(), { EX: 300 });
-
-  
-    await redisClient.set(rateLimitKey, "true", { EX: 60 });
-
-    const message = {
-      to: email,
-      subject: "Your OTP Code for Password Reset",
-      body: otp.toString()
-    };
-
-    await publishToQueue("send-otp", message);
-
-    return res.status(200).json({ message: `OTP sent successfully to ${email}` });
-
-  } catch (error) {
-    console.error("Error in emailExist Controller:", error.message);
-    return res.status(500).json({ message: "Server Error" });
-  }
-};
-
-
-export const verifyUser = async(req,res) =>{
-  try {
-    const{email , otp:enteredOtp} = req.body;
-
-    if(!email || !enteredOtp){
-      res.status(400).json({message:"Email and Otp is requied."})
-      return
-    };
-
-    const otpKey = `otp:${email}`;
-
-    const storedOtp = await redisClient.get(otpKey);
-
-    if(!storedOtp || storedOtp !== enteredOtp){
-      res.status(400).json({message:"Invalid or Expire otp"})
-      return
-    }
-
-    await redisClient.del(otpKey)
-
-    res.json({message:"User verifed sucessfully for reset password."})
-  } catch (error) {
-    console.log("Error in verifyUser controller",error.message);
-    res.status(500).json({message:"Server Error"})
-  }
-};
-
-
-
-export const resetPassword = async(req,res) =>{
-  try {
-    const{email,password} = req.body;
-
-    if(!email || !password){
-      res.status(400).json({message:"all fileds are required"});
-    };
-
-    const user = await User.findOne({email});
-
-    if(!user){
-      res.status(404).json({message:"User not Found"})
-    }
-
-    if(password.length < 6){
-      res.status(401).json({message:"Password should be at least of 6 char"})
-    };
-
-    const isSamePassword = await bcrypt.compare(password,user.password);
-
-    if(isSamePassword){
-      res.status(403).json({message:"Its Privious password"})
-    }
-    const hashPassword = await bcrypt.hash(password,10);
-
-
-    await User.findOneAndUpdate({email},{
-      password:hashPassword
+    const tokenHash = hashToken(token);
+    const user = await User.findOne({
+      verificationTokenHash: tokenHash,
+      verificationTokenExpiresAt: { $gt: new Date() },
     });
-  
 
-    res.status(201).json({message:"Password changed successffuly"})
+    if (!user) {
+      return res.status(400).json({
+        message: "Token invalid or expired",
+        code: "TOKEN_INVALID_OR_EXPIRED",
+      });
+    }
+
+    user.emailVerified = true;
+    user.emailVerifiedAt = new Date();
+    user.verificationTokenHash = null;
+    user.verificationTokenExpiresAt = null;
+    await user.save();
+
+    await recordAudit(req, "email_verified", user._id);
+
+    res.status(200).json({ message: "Email verified successfully" });
   } catch (error) {
-    console.log("Error in resetPassword controller",error.message);
-    res.status(500).json({message:"Server Error"})
+    logError("auth.verify.error", { error: error.message });
+    res.status(500).json({ message: "Server Error" });
   }
-}
+};
+
+export const resendVerification = async (req, res) => {
+  try {
+    const identifier = req.body?.email || req.body?.identifier || req.body?.username || "";
+    const normalizedEmail = normalizeEmail(identifier);
+    if (!normalizedEmail || !isValidEmail(normalizedEmail)) {
+      return res.status(200).json({
+        message: "If your email is eligible, you'll receive verification steps.",
+      });
+    }
+
+    const ip = getClientIp(req);
+    const rateKey = `verify:resend:${normalizedEmail}:${ip}`;
+    const limit = await rateLimit({
+      key: rateKey,
+      limit: 1,
+      windowSeconds: AUTH_CONFIG.resendVerifyWindowSec,
+    });
+    if (!limit.allowed) {
+      return res.status(429).json({
+        message: "Please wait before requesting another email.",
+        retryAfterSeconds: AUTH_CONFIG.resendVerifyWindowSec,
+      });
+    }
+
+    const user = await User.findOne({ email: normalizedEmail });
+    if (!user || user.emailVerified) {
+      return res.status(200).json({
+        message: "If your email is eligible, you'll receive verification steps.",
+      });
+    }
+
+    const { token, tokenHash, expiresAt } = createToken(
+      "verify",
+      user._id,
+      AUTH_CONFIG.verifyTokenMinutes
+    );
+    user.verificationTokenHash = tokenHash;
+    user.verificationTokenExpiresAt = expiresAt;
+    await user.save();
+
+    await req.app.locals.emailService?.sendVerificationEmail({ user, token });
+    await recordAudit(req, "verification_resent", user._id);
+
+    res.status(200).json({
+      message: "If your email is eligible, you'll receive verification steps.",
+    });
+  } catch (error) {
+    logError("auth.resend.error", { error: error.message });
+    res.status(500).json({ message: "Server Error" });
+  }
+};
+
+export const forgotPassword = async (req, res) => {
+  try {
+    const normalizedEmail = normalizeEmail(req.body?.email || "");
+    if (!normalizedEmail || !isValidEmail(normalizedEmail)) {
+      return res.status(400).json({ message: "Invalid email address" });
+    }
+
+    const ip = getClientIp(req);
+    const rateKey = `reset:ip:${ip}`;
+    const limit = await rateLimit({
+      key: rateKey,
+      limit: AUTH_CONFIG.resetRateLimitPerIp,
+      windowSeconds: AUTH_CONFIG.resetRateLimitWindowSec,
+    });
+    if (!limit.allowed) {
+      return res.status(429).json({
+        message: "Too many reset requests. Try again later.",
+      });
+    }
+    const emailKey = `reset:email:${normalizedEmail}`;
+    const emailLimit = await rateLimit({
+      key: emailKey,
+      limit: 3,
+      windowSeconds: AUTH_CONFIG.resetRateLimitWindowSec,
+    });
+    if (!emailLimit.allowed) {
+      return res.status(429).json({
+        message: "Too many reset requests. Try again later.",
+      });
+    }
+
+    const user = await User.findOne({ email: normalizedEmail });
+    if (user) {
+      const { token, tokenHash, expiresAt } = createToken(
+        "reset",
+        user._id,
+        AUTH_CONFIG.resetTokenMinutes
+      );
+      user.passwordResetTokenHash = tokenHash;
+      user.passwordResetTokenExpiresAt = expiresAt;
+      await user.save();
+
+      try {
+        await req.app.locals.emailService?.sendPasswordResetEmail({
+          user,
+          token,
+        });
+        logInfo("email.reset.sent", { userId: user._id.toString() });
+      } catch (error) {
+        logWarn("email.reset.failed", { error: error.message });
+      }
+
+      await recordAudit(req, "password_reset_requested", user._id);
+    }
+
+    res.status(200).json({
+      message: "If your email is registered, you'll receive reset instructions.",
+    });
+  } catch (error) {
+    logError("auth.forgot.error", { error: error.message });
+    res.status(500).json({ message: "Server Error" });
+  }
+};
+
+export const resetPassword = async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+    if (!token || !newPassword) {
+      return res.status(400).json({ message: "Token and password required" });
+    }
+
+    const passwordCheck = validatePassword(newPassword);
+    if (!passwordCheck.ok) {
+      return res.status(400).json({
+        message: "Password is too weak",
+        hints: passwordCheck.hints,
+      });
+    }
+
+    const tokenHash = hashToken(token);
+    const user = await User.findOne({
+      passwordResetTokenHash: tokenHash,
+      passwordResetTokenExpiresAt: { $gt: new Date() },
+    }).select("+password");
+
+    if (!user) {
+      return res.status(400).json({
+        message: "Token invalid or expired",
+        code: "TOKEN_INVALID_OR_EXPIRED",
+      });
+    }
+
+    const isSamePassword = user.password
+      ? await comparePassword(newPassword, user.password)
+      : false;
+    if (isSamePassword) {
+      return res.status(400).json({ message: "Password must be new" });
+    }
+
+    user.password = await hashPassword(newPassword);
+    user.passwordChangedAt = new Date();
+    user.passwordResetTokenHash = null;
+    user.passwordResetTokenExpiresAt = null;
+    await user.save();
+
+    await recordAudit(req, "password_reset_completed", user._id);
+
+    res.status(200).json({ message: "Password updated successfully" });
+  } catch (error) {
+    logError("auth.reset.error", { error: error.message });
+    res.status(500).json({ message: "Server Error" });
+  }
+};
+
+export const refreshToken = async (req, res) => {
+  try {
+    const token = req.cookies?.refresh_token;
+    if (!token) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const decoded = jwt.verify(token, getRefreshSecret());
+    const user = await User.findById(decoded.userId).select(
+      "+refreshTokenHash +refreshTokenExpiresAt"
+    );
+
+    if (
+      !user ||
+      !user.refreshTokenHash ||
+      user.refreshTokenHash !== hashToken(token) ||
+      (user.refreshTokenExpiresAt && user.refreshTokenExpiresAt < new Date())
+    ) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const { accessToken } = await issueTokens(user, res);
+    res.status(200).json({ token: accessToken });
+  } catch (error) {
+    logError("auth.refresh.error", { error: error.message });
+    res.status(401).json({ message: "Unauthorized" });
+  }
+};

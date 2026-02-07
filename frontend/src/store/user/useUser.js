@@ -22,3 +22,17 @@ export const useIsFollowing = (targetUserId) => {
     shallowEqual
   );
 };
+
+// Minimal auth user selector for feed-heavy components to avoid rerenders on follow list changes.
+export const useAuthUserSummary = () => {
+  return useSelector((state) => {
+    const u = state.user.user;
+    if (!u) return null;
+    return {
+      _id: u._id,
+      name: u.name,
+      avatar: u.avatar,
+      username: u.username,
+    };
+  }, shallowEqual);
+};

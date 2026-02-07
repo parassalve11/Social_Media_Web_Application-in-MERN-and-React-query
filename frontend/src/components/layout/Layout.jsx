@@ -96,7 +96,15 @@ function Layout({ children }) {
   ];
 
   // Define routes where the sidebar should be hidden
-  const hideSidebarRoutes = ["/signup", "/signin", "/messages"];
+  const hideSidebarRoutes = [
+    "/signup",
+    "/signin",
+    "/messages",
+    "/forgot-password",
+    "/check-inbox",
+    "/verify-email",
+    "/reset-password",
+  ];
 
   // Check if the current route is one where the sidebar should be hidden
   const shouldHideSidebar = hideSidebarRoutes.includes(location.pathname);

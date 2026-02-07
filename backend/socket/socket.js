@@ -79,7 +79,7 @@ export const initializeSocket = (server) => {
         }
 
         if (receiverSocketId) {
-          io.to(receiverSocketId).emit("recevie_message", message);
+          io.to(receiverSocketId).emit("receive_message", message);
         }
       } catch (error) {
         console.error(
@@ -180,6 +180,8 @@ export const initializeSocket = (server) => {
         const users = io.socketUserMap;
 
         users.forEach((socketId) => {
+          const payload = { messageId, conversationId };
+          io.to(socketId).emit("message_deleted", payload);
           io.to(socketId).emit("mesage_delected", {
             deletetMessageId: messageId,
             conversationId,

@@ -39,8 +39,7 @@ const ProfileHeader = ({
           <img
             src={
               avatarPreview ||
-              userData.avatar ||
-              "https://via.placeholder.com/150"
+              userData.avatar 
             }
             alt="Avatar"
             className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-white shadow-md"

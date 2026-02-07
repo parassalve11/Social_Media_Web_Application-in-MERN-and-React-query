@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "nodemon backend/server.js",
     "start": "node backend/server.js",
-    "build": "npm install &&  npm install --prefix frontend &&  npm run build --prefix frontend"
+    "build": "npm install &&  npm install --prefix frontend &&  npm run build --prefix frontend",
+    "test": "node --test backend/*.test.js",
+    "test:unit": "node --test backend/*.unit.test.js",
+    "test:integration": "node --test backend/*.integration.test.js"
   },
   "keywords": [],
   "author": "",
@@ -32,5 +35,9 @@
     "nodemon": "^3.1.10",
     "redis": "^5.8.0",
     "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "mongodb-memory-server": "^9.0.0",
+    "supertest": "^6.3.4"
   }
 }

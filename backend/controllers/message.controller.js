@@ -116,7 +116,11 @@ export const getMessages = async (req, res) => {
       return response(res, 404, "Conversation not Found");
     }
 
-    if (!conversation.participants.includes(userId)) {
+    const isParticipant = conversation.participants.some(
+      (participantId) =>
+        participantId.toString() === userId.toString()
+    );
+    if (!isParticipant) {
       return response(
         res,
         403,

@@ -4,12 +4,12 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "../components/UI/ToastManager";
 import axiosInstance from "../lib/axiosIntance";
 import { getSocket } from "../services/chat.service";
-import { useUser } from "../store/user/useUser";
+import { useAuthUserSummary } from "../store/user/useUser";
 
 export const usePostActions = (post) => {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
-  const { user: authUser } = useUser();
+  const authUser = useAuthUserSummary();
   const socket = getSocket();
 
   // Initialize socket listeners

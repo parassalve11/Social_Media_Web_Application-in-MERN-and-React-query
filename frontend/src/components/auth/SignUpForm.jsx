@@ -1,4 +1,4 @@
-import  { useState } from "react";
+import { useRef, useState } from "react";
 
 import { Input } from "../UI/input";
 import Button from "../UI/ButtonAnimatedGradient";
@@ -10,19 +10,24 @@ import { useToast } from "../UI/ToastManager";
 import { jwtDecode } from "jwt-decode";
 import { GoogleLogin } from "@react-oauth/google";
 import useFormValidation from "../../hooks/useFormValidation";
+import PasswordStrengthMeter from "./PasswordStrengthMeter";
+import { useNavigate } from "react-router-dom";
 
 const SignUpForm = () => {
- const { values, errors, handleChange, validateForm } = useFormValidation(
+ const { values, errors, handleChange, validateForm, handleBlur, touched } = useFormValidation(
     "signup",
-    { name:" ",username: "",email:"" ,  password: "" }
+    { name: "", username: "", email: "", password: "" }
   );
-
-
 
   const [showPassword, setShowPassword] = useState(false);
 
   const[error,setError] = useState("");
   const{addToast} = useToast();
+  const navigate = useNavigate();
+  const nameRef = useRef(null);
+  const usernameRef = useRef(null);
+  const emailRef = useRef(null);
+  const passwordRef = useRef(null);
 
   const queryClient = useQueryClient();
 
@@ -32,19 +37,23 @@ const SignUpForm = () => {
       return res;
     },
     onSuccess: () => {
-      addToast("Signed Up successfully!", {
-      type: "success",
-      duration: 3000,
-    });
-      queryClient.invalidateQueries({ queryKey: ['authUser'] });
+      addToast("Check your email to verify your account.", {
+        type: "success",
+        duration: 4000,
+      });
+      const email = values.email?.trim();
+      if (email) {
+        localStorage.setItem("pending_verification_email", email);
+        navigate(`/check-inbox?email=${encodeURIComponent(email)}&type=verify`);
+      }
        
     },
     onError: (error) => {
-       addToast("Something went wrong", {
+       addToast(error.response?.data?.message || "Something went wrong", {
       type: "error",
       duration: 3000,
     });
-    setError(error);
+    setError(error.response?.data?.message || "Something went wrong");
       console.log(error);
     },
   });
@@ -96,78 +105,115 @@ const SignUpForm = () => {
 
   const handleSignup = (e) => {
     e.preventDefault();
-   if(validateForm()){
-     signUpMutation(values);
-   }
+    const validation = validateForm();
+    if (!validation.isValid) {
+      const fields = ["name", "username", "email", "password"];
+      const firstError = fields.find((field) => validation.errors[field]);
+      if (firstError === "name") nameRef.current?.focus();
+      if (firstError === "username") usernameRef.current?.focus();
+      if (firstError === "email") emailRef.current?.focus();
+      if (firstError === "password") passwordRef.current?.focus();
+      return;
+    }
+    signUpMutation(values);
   };
 
   return (
    <div>
     <p className="text-red-600 font-medium text-xs text-center mb-2">{error}</p>
-     <form onSubmit={handleSignup}>
+     <form onSubmit={handleSignup} aria-live="polite">
       <div className="space-y-5">
         <div>
+          <label className="sr-only" htmlFor="signup-name">Full name</label>
           <Input
             type="text"
             name='name'
+            id="signup-name"
+            value={values.name}
             placeholder="Full name"
             onChange={handleChange}
+            onBlur={handleBlur}
             className="w-full"
             leftIcon={<UserCheck2 />}
             required
+            autoComplete="name"
+            ref={nameRef}
           />
-           {errors.name && (
+           {touched.name && errors.name && (
               <p className="text-red-600 text-xs font-light mt-1">{errors.name}</p>
             )}
         </div>
         <div>
+          <label className="sr-only" htmlFor="signup-username">Username</label>
           <Input
             type="text"
             name='username'
+            id="signup-username"
+            value={values.username}
             placeholder="Enter Your Username"
             className="w-full"
             onChange={handleChange}
+            onBlur={handleBlur}
             leftIcon={<User2 />}
             required
+            autoComplete="username"
+            ref={usernameRef}
           />
-           {errors.username && (
+           {touched.username && errors.username && (
               <p className="text-red-600 text-xs font-light mt-1">{errors.username}</p>
             )}
         </div>
         <div>
+          <label className="sr-only" htmlFor="signup-email">Email</label>
           <Input
             type="email"
             name='email'
+            id="signup-email"
+            value={values.email}
             placeholder="Enter Your Email"
             className="w-full"
             onChange={handleChange}
+            onBlur={handleBlur}
             leftIcon={<Mail />}
             required
+            autoComplete="email"
+            ref={emailRef}
           />
-           {errors.email && (
+           {touched.email && errors.email && (
               <p className="text-red-600 text-xs font-light mt-1">{errors.email}</p>
             )}
         </div>
         <div>
+          <label className="sr-only" htmlFor="signup-password">Password</label>
           <Input
           name='password'
+            id="signup-password"
             type={showPassword ? "text" : "password"}
             placeholder="Enter Your Password"
             className="w-full"
             onChange={handleChange}
+            value={values.password}
+            onBlur={handleBlur}
             leftIcon={<Lock />}
             rightIcon={
               showPassword ? (
-                <Eye onClick={() => setShowPassword(!showPassword)} />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} aria-label="Hide password">
+                  <Eye />
+                </button>
               ) : (
-                <EyeClosed onClick={() => setShowPassword(!showPassword)} />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} aria-label="Show password">
+                  <EyeClosed />
+                </button>
               )
             }
             required
+            autoComplete="new-password"
+            ref={passwordRef}
           />
-           {errors.password && (
+           {touched.password && errors.password && (
               <p className="text-red-600 text-xs font-light mt-1">{errors.password}</p>
             )}
+          <PasswordStrengthMeter password={values.password} />
         </div>
       </div>
       <div className="space-y-3 mt-5">

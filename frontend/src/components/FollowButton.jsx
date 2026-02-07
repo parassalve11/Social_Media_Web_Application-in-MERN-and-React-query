@@ -1,7 +1,8 @@
 // components/FollowButton.jsx
-import React from "react";
-import { useFollow } from "../store/follow/useFollow";
-import { useIsFollowing } from "../store/user/useUser"; // optional fallback
+import React, { useEffect, useState } from "react";
+import axiosInstance from "../lib/axiosIntance";
+import { getSocket } from "../services/chat.service";
+import { store } from "../store"; // snapshot only (no subscription)
 
 export default function FollowButton({
   userId,
@@ -12,19 +13,62 @@ export default function FollowButton({
   disabled: disabledProp,
   className = "",
 }) {
-  // fallback to internal hooks only when controlled props are not provided
-  const { followUser, unfollowUser, loading } = useFollow();
-  const isFollowingInternal = useIsFollowing ? useIsFollowing(userId) : undefined;
-
   const isControlled = typeof isFollowingProp !== "undefined";
-  const isFollowing = isControlled ? isFollowingProp : isFollowingInternal;
-  const isDisabled = typeof disabledProp !== "undefined" ? disabledProp : loading;
+  const [localIsFollowing, setLocalIsFollowing] = useState(() => {
+    if (isControlled) return !!isFollowingProp;
+    return !!store.getState().user.user?.following?.includes(userId);
+  });
+  const [localLoading, setLocalLoading] = useState(false);
 
-  const handleClick = () => {
+  useEffect(() => {
+    if (isControlled) {
+      setLocalIsFollowing(!!isFollowingProp);
+    }
+  }, [isControlled, isFollowingProp]);
+
+  useEffect(() => {
+    if (!isControlled) {
+      setLocalIsFollowing(
+        !!store.getState().user.user?.following?.includes(userId)
+      );
+    }
+  }, [isControlled, userId]);
+
+  const isFollowing = isControlled ? isFollowingProp : localIsFollowing;
+  const isDisabled =
+    typeof disabledProp !== "undefined" ? disabledProp : localLoading;
+
+  const handleClick = async (e) => {
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
+    if (isDisabled || !userId) return;
     if (isControlled) {
       isFollowing ? onUnfollow?.() : onFollow?.();
     } else {
-      isFollowing ? unfollowUser(userId) : followUser(userId);
+      const next = !isFollowing;
+      setLocalIsFollowing(next);
+      setLocalLoading(true);
+      try {
+        if (next) {
+          await axiosInstance.post(`/follows/${userId}/follow`);
+        } else {
+          await axiosInstance.post(`/follows/${userId}/unfollow`);
+        }
+
+        const socket = getSocket();
+        const authUserId = store.getState().user.user?._id;
+        if (socket && authUserId) {
+          socket.emit(next ? "follow_user" : "unfollow_user", {
+            followerId: authUserId,
+            followedId: userId,
+          });
+        }
+      } catch (error) {
+        setLocalIsFollowing(!next);
+        console.error("Follow action failed:", error);
+      } finally {
+        setLocalLoading(false);
+      }
     }
   };
 
@@ -39,7 +83,7 @@ export default function FollowButton({
         transition-all duration-200 ease-in-out
         min-w-[70px] sm:min-w-[90px] md:min-w-[100px]
         ${
-          loading
+          isDisabled
             ? "opacity-50 cursor-not-allowed bg-gray-300 text-gray-600"
             : "hover:shadow-lg hover:scale-105 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
         }

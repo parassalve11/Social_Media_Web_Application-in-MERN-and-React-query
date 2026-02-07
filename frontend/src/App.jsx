@@ -13,9 +13,10 @@ import FollowingPage from "./pages/FollowingPage.jsx";
 import HashtagPosts from "./components/HashtagPosts.jsx";
 import SearchPage from "./pages/SearchPage.jsx";
 import PostPage from "./pages/PostPage.jsx";
-import ConfromEmailPage from "./pages/forget-password/ConfromEmailPage.jsx";
-import VerifyPage from "./pages/forget-password/VerifyPage.jsx";
-import ResetPasswordPage from "./pages/forget-password/ResetPasswordPage.jsx";
+import CheckInboxPage from "./pages/auth/CheckInboxPage.jsx";
+import VerifyEmailPage from "./pages/auth/VerifyEmailPage.jsx";
+import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage.jsx";
+import ResetPasswordPage from "./pages/auth/ResetPasswordPage.jsx";
 import { useUser } from "./store/user/useUser.js";
 
 import MessagePage from "./pages/MessagePage.jsx";
@@ -60,16 +61,19 @@ function App() {
         />
 
         <Route
-          path="/forget-password/check"
-          element={!user ? <ConfromEmailPage /> : <Navigate to={"/"} />}
+          path="/forgot-password"
+          element={!user ? <ForgotPasswordPage /> : <Navigate to={"/"} />}
         />
         <Route
-          path="/verify/:email"
-          element={!user ? <VerifyPage /> : <Navigate to={"/"} />}
+          path="/check-inbox"
+          element={!user ? <CheckInboxPage /> : <Navigate to={"/"} />}
         />
-
         <Route
-          path="/forget-password/:email/reset"
+          path="/verify-email"
+          element={!user ? <VerifyEmailPage /> : <Navigate to={"/"} />}
+        />
+        <Route
+          path="/reset-password"
           element={!user ? <ResetPasswordPage /> : <Navigate to={"/"} />}
         />
 

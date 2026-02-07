@@ -1,10 +1,12 @@
-import jwt from 'jsonwebtoken'
-import User from '../models/user.model.js';
+import jwt from "jsonwebtoken";
+import User from "../models/user.model.js";
 
 
 export const protectRoute = async(req,res,next) =>{
     try {
-        const token = req.cookies['jwt_social'];
+        const bearer = req.headers.authorization;
+        const token =
+          req.cookies?.jwt_social || (bearer ? bearer.split(" ")[1] : null);
 
         if(!token){
             return res.status(401).json({message:"Unauthorized token"})
@@ -21,13 +23,16 @@ export const protectRoute = async(req,res,next) =>{
             return res.status(400).json({message:"user not found"})
         };
 
+        if(!user.emailVerified){
+            return res.status(403).json({message:"Email not verified"})
+        }
+
         req.user = user;
         next()
 
     } catch (error) {
         console.log("Erorr in protect route MiddleWare",error.message);
-        
-        res.status(500).json({message:"Server Error"})
+        res.status(401).json({message:"Unauthorized"})
       
     }
 }

@@ -168,7 +168,7 @@ export default function SearchPage() {
             return (
               <li key={user._id} className="flex items-center justify-between p-3 hover:bg-gray-100 rounded-lg">
                 <div className="flex items-center space-x-3">
-                  <img src={user.avatar || "https://via.placeholder.com/150"} alt={`${user.username}'s avatar`} className="w-12 h-12 rounded-full object-cover"/>
+                  <img src={user.avatar } alt={`${user.username}'s avatar`} className="w-12 h-12 rounded-full object-cover"/>
                   <Link to={`/profile/${user.username}`} className="truncate">
                     <p className="font-medium">{user.name}</p>
                     <p className="text-sm text-gray-500">@{user.username}</p>

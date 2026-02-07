@@ -5,12 +5,12 @@ import RecommendedUsers from '../components/RecommandedUsers';
 import ForYouFeed from '../components/posts/ForYouFeed';
 import FollowingFeed from '../components/posts/FollowingFeed';
 import TrendingBar from '../components/TrendingBar';
-import { useUser } from '../store/user/useUser';
+import { useAuthUserSummary } from '../store/user/useUser';
 
 const HomePage = () => {
 
 
- const {  user:authUser } = useUser();
+ const authUser = useAuthUserSummary();
 
   const tabs = [
     {

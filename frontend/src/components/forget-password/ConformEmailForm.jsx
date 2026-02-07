@@ -1,41 +1,46 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react"
+import { useState } from "react";
 import axiosInstance from "../../lib/axiosIntance";
 import { useToast } from "../UI/ToastManager";
-import {useNavigate} from "react-router-dom"
+import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Loader2, Mail } from "lucide-react";
 import { Input } from "../UI/input";
 import Button from "../UI/ButtonAnimatedGradient";
 import { Link } from "react-router-dom";
+import { validateEmail } from "../../lib/validation";
 
 
 export default function ConformEmailForm() {
 
-  const[error,setError] = useState("");
-  const[email,setEmail] = useState("");
+  const [error, setError] = useState("");
+  const [email, setEmail] = useState("");
 
   const{addToast} = useToast();
 
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const {mutate:conformEmailMutation,isPending} = useMutation({
-    mutationFn:async(email) => await axiosInstance.post(`/auth/forget-password/check`,{email}),
+  const { mutate: conformEmailMutation, isPending } = useMutation({
+    mutationFn: async (email) => await axiosInstance.post(`/auth/forgot`, { email }),
     onSuccess:() =>{
       queryClient.invalidateQueries({queryKey:"authUser"})
-      addToast("Otp is Send to Email" ,{
+      addToast("Check your inbox for reset instructions." ,{
         type:"success",
         duration:3000
       });
 
       setError("")
-      navigate(`/verify/${email}`)
+      const normalizedEmail = email?.trim();
+      if (normalizedEmail) {
+        localStorage.setItem("pending_reset_email", normalizedEmail);
+        navigate(`/check-inbox?email=${encodeURIComponent(normalizedEmail)}&type=reset`);
+      }
     },
     onError:(error) =>{
-        addToast("Email not exists" ,{
+        addToast(error.response?.data?.message || "Request failed" ,{
         type:"error",
         duration:3000
       });
-      setError(error.response.data.message);
+      setError(error.response?.data?.message || "Request failed");
       console.log(error.message);
       
     }
@@ -43,7 +48,12 @@ export default function ConformEmailForm() {
 
   const handleSubmit = (e) =>{
     e.preventDefault()
-    conformEmailMutation(email);
+    const validationError = validateEmail(email);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    conformEmailMutation(email.trim());
   }
 
   return (
@@ -51,7 +61,7 @@ export default function ConformEmailForm() {
          <div className=" relative rounded-2xl  p-8">
             <div className="text-center  relative">
               <h1 className="text-xl  font-bold mb-3 md:text-4xl">
-                Verify your Email for Otp
+                Reset your password
               </h1>
           </div>
           <Link to={'/signin'} className="absolute left-[-20px] top-0 ">
@@ -65,15 +75,18 @@ export default function ConformEmailForm() {
       <form onSubmit={handleSubmit}>
         <div className="space-y-5">
           <div>
+            <label className="sr-only" htmlFor="forgot-email">Email</label>
             <Input
               type="email"
               name="email"
+              id="forgot-email"
               value={email}
-              placeholder="Enter Your Username"
+              placeholder="Enter your email"
               className="w-full"
               onChange={(e) => setEmail(e.target.value)}
               leftIcon={<Mail />}
               required
+              autoComplete="email"
             />
 
            {error && (
@@ -88,7 +101,7 @@ export default function ConformEmailForm() {
             disabled={isPending}
             className="w-full bg-[#fff1ad] hover:bg-[#e6d89c]  text-black"
           >
-            {isPending ? <Loader2 className="animate-spin size-4" /> : <p className="text-sm flex items-center gap-2 ">Submit <ArrowRight size={20}/></p> }
+            {isPending ? <Loader2 className="animate-spin size-4" /> : <p className="text-sm flex items-center gap-2 ">Send reset link <ArrowRight size={20}/></p> }
           </Button>
         </div>
       </form>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { Input } from "../UI/input";
 import Button from "../UI/ButtonAnimatedGradient";
@@ -15,7 +15,7 @@ import { useToast } from "../UI/ToastManager";
 import { jwtDecode } from "jwt-decode";
 import { GoogleLogin } from "@react-oauth/google";
 import useFormValidation from "../../hooks/useFormValidation";
-import {Link} from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom";
 
 
 const SignInForm = () => {
@@ -23,7 +23,10 @@ const SignInForm = () => {
   
 
   const [showPassword, setShowPassword] = useState(false);
-  const[error,setError] = useState("")
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
+  const identifierRef = useRef(null);
+  const passwordRef = useRef(null);
 
 
 
@@ -33,9 +36,9 @@ const SignInForm = () => {
   const { addToast } = useToast();
 
 
-   const { values, errors, handleChange, validateForm } = useFormValidation(
+   const { values, errors, handleChange, validateForm, handleBlur, touched } = useFormValidation(
     "signin",
-    { username: "", password: "" }
+    { identifier: "", password: "" }
   );
 
 
@@ -57,11 +60,30 @@ const SignInForm = () => {
       queryClient.invalidateQueries({ queryKey: ["authUser"] });
     },
     onError: (error) => {
-      addToast("Something went wrong", {
-        type: "error",
-        duration: 3000,
-      });
-     setError(error.message)
+      const code = error.response?.data?.code;
+      if (code === "EMAIL_NOT_VERIFIED") {
+        addToast("Please verify your email to continue.", {
+          type: "warning",
+          duration: 4000,
+        });
+        const email =
+          error.response?.data?.email || values.identifier?.trim();
+        if (email) {
+          localStorage.setItem("pending_verification_email", email);
+          navigate(`/check-inbox?email=${encodeURIComponent(email)}&type=verify`);
+        }
+      } else if (error.response?.status === 423) {
+        addToast("Account locked. Try again later.", {
+          type: "error",
+          duration: 4000,
+        });
+      } else {
+        addToast(error.response?.data?.message || "Something went wrong", {
+          type: "error",
+          duration: 3000,
+        });
+      }
+      setError(error.response?.data?.message || error.message);
       console.log(error);
     },
   });
@@ -113,9 +135,13 @@ const SignInForm = () => {
   const handleSignup = (e) => {
     e.preventDefault();
     
-    if(validateForm()){
-      signInMutation(values)
+    const validation = validateForm();
+    if (!validation.isValid) {
+      if (validation.errors.identifier) identifierRef.current?.focus();
+      else if (validation.errors.password) passwordRef.current?.focus();
+      return;
     }
+    signInMutation({ identifier: values.identifier, password: values.password });
     
   };
 
@@ -127,45 +153,60 @@ const SignInForm = () => {
       <form onSubmit={handleSignup}>
         <div className="space-y-5">
           <div>
+            <label className="sr-only" htmlFor="signin-identifier">Email or username</label>
             <Input
               type="text"
-              name="username"
-              value={values.username}
-              placeholder="Enter Your Username"
+              name="identifier"
+              id="signin-identifier"
+              value={values.identifier}
+              placeholder="Email or username"
               className="w-full"
               onChange={handleChange}
+              onBlur={handleBlur}
               leftIcon={<User2 />}
               required
+              autoComplete="username"
+              ref={identifierRef}
             />
 
-           {errors.username && (
-              <p className="text-red-600 text-xs font-light mt-1">{errors.username}</p>
+           {touched.identifier && errors.identifier && (
+              <p className="text-red-600 text-xs font-light mt-1">{errors.identifier}</p>
             )}
           </div>
 
           <div>
+            <label className="sr-only" htmlFor="signin-password">Password</label>
             <Input
               type={showPassword ? "text" : "password"}
               placeholder="Enter Your Password"
               className="w-full"
               name="password"
+              id="signin-password"
               onChange={handleChange}
+              value={values.password}
+              onBlur={handleBlur}
               leftIcon={<Lock />}
               rightIcon={
                 showPassword ? (
-                  <Eye onClick={() => setShowPassword(!showPassword)} />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} aria-label="Hide password">
+                    <Eye />
+                  </button>
                 ) : (
-                  <EyeClosed onClick={() => setShowPassword(!showPassword)} />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} aria-label="Show password">
+                    <EyeClosed />
+                  </button>
                 )
               }
               required
+              autoComplete="current-password"
+              ref={passwordRef}
             />
-            {errors.password && (
+            {touched.password && errors.password && (
               <p className="text-red-600 text-xs font-light mt-1">{errors.password}</p>
             )}
           </div>
         </div>
-        <Link to={'/forget-password/check'} className="flex items-center mt-auto">
+        <Link to={'/forgot-password'} className="flex items-center mt-auto">
           <p className="text-sm font-semibold text-blue-600 hover:cursor-pointer">Forget Password ?</p>
         </Link>
         <div className="space-y-3 mt-5">

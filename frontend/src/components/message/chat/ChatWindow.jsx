@@ -6,7 +6,8 @@ import data from "@emoji-mart/data";
 import MessageBubble from "./MessageBubble";
 import { useChat } from "../../../store/chat/useChat";
 import { useUser } from "../../../store/user/useUser";
-import {motion as Motion} from 'framer-motion'
+import { motion as Motion } from "framer-motion";
+import { useQueryClient } from "@tanstack/react-query";
 
 /* ---------------- Helpers ---------------- */
 const isValidDate = (value) => !isNaN(new Date(value).getTime());
@@ -40,6 +41,7 @@ function ChatWindow({ selectedContact, setSelectedContact }) {
   const messageEndRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const { user } = useUser();
+  const queryClient = useQueryClient();
   const {
     messages,
     fetchMessages,
@@ -126,18 +128,33 @@ function ChatWindow({ selectedContact, setSelectedContact }) {
     const formData = new FormData();
     formData.append("senderId", user._id);
     formData.append("receiverId", selectedContact._id);
+    if (message.trim()) {
+      formData.append("content", message.trim());
+    }
     if (files.length > 0) {
       files.forEach((file) => {
         formData.append("media", file);
       });
-    } else {
-      formData.append("content", message.trim());
     }
-    await sendMessage(formData);
-    setMessage("");
-    setFiles([]);
-    setPreviews([]);
-    stopTyping(selectedContact._id);
+    try {
+      const result = await sendMessage(formData);
+      if (result?.conversation && !selectedContact?.conversation) {
+        setSelectedContact({
+          ...selectedContact,
+          conversation: {
+            _id: result.conversation,
+            lastMessage: result,
+          },
+        });
+        queryClient.invalidateQueries({ queryKey: ["AllUsers"] });
+      }
+      setMessage("");
+      setFiles([]);
+      setPreviews([]);
+      stopTyping(selectedContact._id);
+    } catch (error) {
+      console.error("Failed to send message", error);
+    }
   };
 
   return (

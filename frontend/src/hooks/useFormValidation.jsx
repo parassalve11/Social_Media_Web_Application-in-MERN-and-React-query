@@ -1,47 +1,32 @@
-// useFormValidation.js
 import { useState } from "react";
+import {
+  validateEmail,
+  validateName,
+  validatePassword,
+  validateUsername,
+} from "../lib/validation";
 
 const useFormValidation = (formType, initialValues) => {
   const [values, setValues] = useState(initialValues);
   const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
 
   // Define validation rules for both forms
   const validationRules = {
     signup: {
-      name: {
-        required: true,
-        minLength: 2,
-        errorMessage: "Name must be at least 2 characters",
-      },
-      username: {
-        required: true,
-        minLength: 3,
-        pattern: /^[@a-zA-Z0-9_]+$/,
-        errorMessage: "Username can only contain letters, numbers, and underscores",
-      },
-      email: {
-        required: true,
-        pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-        errorMessage: "Invalid email format",
-      },
-      password: {
-        required: true,
-        minLength: 6,
-        pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{6,}$/,
-        errorMessage: "Password must contain at least one uppercase letter, one lowercase letter, and one number",
-      },
+      name: (value) => validateName(value),
+      username: (value) => validateUsername(value),
+      email: (value) => validateEmail(value),
+      password: (value) => validatePassword(value),
     },
     signin: {
-      username: {
-        required: true,
-        minLength: 3,
-        pattern: /^[a-zA-Z0-9_]+$/,
-        errorMessage: "Username can only contain letters, numbers, and underscores",
+      identifier: (value) => {
+        if (!value?.trim()) return "Email or username is required";
+        return "";
       },
-      password: {
-        required: true,
-        minLength: 6,
-        errorMessage: "Password must be at least 6 characters",
+      password: (value) => {
+        if (!value?.trim()) return "Password is required";
+        return "";
       },
     },
   };
@@ -51,20 +36,9 @@ const useFormValidation = (formType, initialValues) => {
 
   // Function to validate a single field
   const validateField = (name, value) => {
-    const fieldRules = rules[name];
-    if (!fieldRules) return "";
-
-    let error = "";
-
-    if (fieldRules.required && !value.trim()) {
-      error = `${name.charAt(0).toUpperCase() + name.slice(1)} is required`;
-    } else if (fieldRules.minLength && value.length < fieldRules.minLength) {
-      error = fieldRules.errorMessage || `${name.charAt(0).toUpperCase() + name.slice(1)} must be at least ${fieldRules.minLength} characters`;
-    } else if (fieldRules.pattern && !fieldRules.pattern.test(value)) {
-      error = fieldRules.errorMessage || `Invalid ${name}`;
-    }
-
-    return error;
+    const validator = rules[name];
+    if (!validator) return "";
+    return validator(value, values);
   };
 
   // Function to validate all fields
@@ -75,7 +49,15 @@ const useFormValidation = (formType, initialValues) => {
       if (error) newErrors[key] = error;
     });
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0; // Returns true if no errors
+    const touchedMap = Object.keys(rules).reduce((acc, key) => {
+      acc[key] = true;
+      return acc;
+    }, {});
+    setTouched(touchedMap);
+    return {
+      isValid: Object.keys(newErrors).length === 0,
+      errors: newErrors,
+    };
   };
 
   // Handle input change
@@ -84,6 +66,13 @@ const useFormValidation = (formType, initialValues) => {
     setValues((prev) => ({ ...prev, [name]: value }));
 
     // Validate the field on change
+    const error = validateField(name, value);
+    setErrors((prev) => ({ ...prev, [name]: error }));
+  };
+
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+    setTouched((prev) => ({ ...prev, [name]: true }));
     const error = validateField(name, value);
     setErrors((prev) => ({ ...prev, [name]: error }));
   };
@@ -101,6 +90,8 @@ const useFormValidation = (formType, initialValues) => {
     validateForm,
     resetForm,
     setValues,
+    touched,
+    handleBlur,
   };
 };
 
